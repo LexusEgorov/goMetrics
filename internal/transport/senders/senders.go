@@ -14,6 +14,4 @@ func SendMetric(metricName, metricType, metricValue string) {
 	} else {
 		fmt.Printf("RESPONSE: %s\n", response.Status)
 	}
-
-	// fmt.Printf("METRIC: %s | TYPE: %s | VALUE: %s\n", metricName, metricType, metricValue)
 }

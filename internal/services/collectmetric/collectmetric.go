@@ -5,6 +5,7 @@ import (
 	"math/rand/v2"
 	"reflect"
 	"runtime"
+	"time"
 
 	"github.com/LexusEgorov/goMetrics/internal/services/storage"
 	"github.com/LexusEgorov/goMetrics/internal/transport/senders"
@@ -40,53 +41,98 @@ var gaugeMetrics = [...]string{
 	"TotalAlloc",
 }
 
-var agentStorage = storage.CreateStorage()
-var pollCount storage.Counter = 0
-
-func CollectMetrics() {
-	var memStats runtime.MemStats
-	runtime.ReadMemStats(&memStats)
-
-	for _, metricName := range gaugeMetrics {
-		value := reflect.ValueOf(memStats).FieldByName(metricName)
-		pollCount++
-
-		if value.IsValid() && value.CanInterface() {
-			switch v := value.Interface().(type) {
-			case float64:
-				agentStorage.AddGauge(storage.MetricName(metricName), storage.Gauge(v))
-			case uint64:
-				agentStorage.AddGauge(storage.MetricName(metricName), storage.Gauge(float64(v)))
-			case uint32:
-				agentStorage.AddGauge(storage.MetricName(metricName), storage.Gauge(float64(v)))
-			case uint16:
-				agentStorage.AddGauge(storage.MetricName(metricName), storage.Gauge(float64(v)))
-			case uint8:
-				agentStorage.AddGauge(storage.MetricName(metricName), storage.Gauge(float64(v)))
-			default:
-				fmt.Printf("Unable to convert metric %s (%s) to a float64\n", metricName, v)
-			}
-		} else {
-			fmt.Printf("Metric %s is not valid or accessible\n", metricName)
-			continue
-		}
-
-	}
-
-	agentStorage.AddCounter("PollCount", pollCount)
-	randomValue := rand.Float64()
-	agentStorage.AddGauge("RandomValue", storage.Gauge(randomValue))
+type MetricsCollector interface {
+	collectMetrics()
+	sendMetrics()
+	Start(stopChan chan struct{})
 }
 
-func SendMetrics() {
-	for k, v := range agentStorage.GetAll() {
-		switch metric := v.(type) {
-		case storage.Gauge:
-			senders.SendMetric(string(k), "gauge", metric.ToString())
-		case storage.Counter:
-			senders.SendMetric(string(k), "counter", metric.ToString())
-		default:
-			fmt.Printf("Unknown metric's type: %T\n", v)
+type agentIntervals struct {
+	collect int
+	send    int
+}
+
+type MetricAgent struct {
+	storage   storage.MemStorage
+	pollCount storage.Counter
+	intervals agentIntervals
+}
+
+func (agent *MetricAgent) collectMetrics() {
+	for {
+		fmt.Println("Collect started")
+		var memStats runtime.MemStats
+		runtime.ReadMemStats(&memStats)
+
+		for _, metricName := range gaugeMetrics {
+			value := reflect.ValueOf(memStats).FieldByName(metricName)
+			agent.pollCount++
+
+			if value.IsValid() && value.CanInterface() {
+				switch v := value.Interface().(type) {
+				case float64:
+					agent.storage.AddGauge(storage.MetricName(metricName), storage.Gauge(v))
+				case uint64:
+					agent.storage.AddGauge(storage.MetricName(metricName), storage.Gauge(float64(v)))
+				case uint32:
+					agent.storage.AddGauge(storage.MetricName(metricName), storage.Gauge(float64(v)))
+				case uint16:
+					agent.storage.AddGauge(storage.MetricName(metricName), storage.Gauge(float64(v)))
+				case uint8:
+					agent.storage.AddGauge(storage.MetricName(metricName), storage.Gauge(float64(v)))
+				default:
+					fmt.Printf("Unable to convert metric %s (%s) to a float64\n", metricName, v)
+				}
+			} else {
+				fmt.Printf("Metric %s is not valid or accessible\n", metricName)
+				continue
+			}
 		}
+
+		agent.storage.AddCounter("PollCount", agent.pollCount)
+		randomValue := rand.Float64()
+		agent.storage.AddGauge("RandomValue", storage.Gauge(randomValue))
+
+		fmt.Println("Collect finished")
+		time.Sleep(time.Duration(agent.intervals.collect) * time.Second)
+	}
+}
+
+func (agent MetricAgent) sendMetrics() {
+	for {
+		time.Sleep(time.Duration(agent.intervals.send) * time.Second)
+		fmt.Println("Sending started")
+		for k, v := range agent.storage.GetAll() {
+			switch metric := v.(type) {
+			case storage.Gauge:
+				senders.SendMetric(string(k), "gauge", metric.ToString())
+			case storage.Counter:
+				senders.SendMetric(string(k), "counter", metric.ToString())
+			default:
+				fmt.Printf("Unknown metric's type: %T\n", v)
+			}
+		}
+
+		fmt.Println("Sending finished")
+	}
+}
+
+func (agent MetricAgent) Start(stopChan chan struct{}) {
+	fmt.Println("Agent started")
+	go agent.collectMetrics()
+	go agent.sendMetrics()
+
+	<-stopChan
+	fmt.Println("Agent finished")
+}
+
+func CreateAgent() MetricsCollector {
+	return &MetricAgent{
+		storage:   storage.CreateStorage(),
+		pollCount: 0,
+		intervals: agentIntervals{
+			collect: 2,
+			send:    10,
+		},
 	}
 }
