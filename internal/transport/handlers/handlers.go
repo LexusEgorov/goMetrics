@@ -20,14 +20,12 @@ func UpdateMetric(w http.ResponseWriter, r *http.Request) {
 	mType := r.PathValue("metricType")
 	mValue := r.PathValue("metricValue")
 
-	fmt.Printf("Name: %s\nType: %s\nValue: %s\n", mName, mType, mValue)
+	fmt.Printf("Name: %s\nType: %s\nValue: %s\n ============\n", mName, mType, mValue)
 
 	if mName == "" || mValue == "" {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-
-	currentMetric := metricStorage.GetMetric(storage.MetricName(mName))
 
 	switch mType {
 	case "gauge":
@@ -38,9 +36,7 @@ func UpdateMetric(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		currentMetric.UpdateGauge(value)
-		metricStorage.SetMetric(storage.MetricName(mName), *currentMetric)
-
+		metricStorage.AddGauge(storage.MetricName(mName), storage.Gauge(value))
 	case "counter":
 		value, err := strconv.ParseInt(mValue, 0, 64)
 
@@ -49,15 +45,13 @@ func UpdateMetric(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		fmt.Println(value)
-		currentMetric.UpdateCounter(value)
-		metricStorage.SetMetric(storage.MetricName(mName), *currentMetric)
-
+		metricStorage.AddCounter(storage.MetricName(mName), storage.Counter(value))
 	default:
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	fmt.Println(metricStorage.GetMetrics())
+	fmt.Println(metricStorage.GetAll())
+	fmt.Println("========")
 	w.WriteHeader(http.StatusOK)
 }

@@ -1,48 +1,59 @@
 package storage
 
-import "github.com/LexusEgorov/goMetrics/internal/services/metric"
+import (
+	"fmt"
+	"strconv"
+)
 
 type MetricName string
+type Gauge float64
+type Counter int64
+
+func (g Gauge) ToString() string {
+	return strconv.FormatFloat(float64(g), 'f', -1, 64)
+}
+
+func (c Counter) ToString() string {
+	return strconv.Itoa(int(c))
+}
+
+type Storager interface {
+	AddGauge(key MetricName, value Gauge)
+	AddCounter(key MetricName, value Counter)
+	Get(key MetricName) interface{}
+	GetAll() map[MetricName]interface{}
+}
 
 type MemStorage struct {
-	metrics map[MetricName]metric.Metric
+	data map[MetricName]interface{}
 }
 
-func (m *MemStorage) AddMetric(metricName MetricName) metric.Metric {
-	createdMetric := metric.CreateMetric()
-
-	m.metrics[metricName] = createdMetric
-
-	return createdMetric
+func (m *MemStorage) AddGauge(key MetricName, value Gauge) {
+	m.data[key] = value
 }
 
-func (m MemStorage) GetMetric(metricName MetricName) *metric.Metric {
-	metrics := m.metrics
-
-	if len(metrics) == 0 {
-		createdMetric := m.AddMetric(metricName)
-		return &createdMetric
+func (m *MemStorage) AddCounter(key MetricName, value Counter) {
+	if existing, ok := m.data[key]; ok {
+		if counterValue, ok := existing.(Counter); ok {
+			m.data[key] = counterValue + value
+		} else {
+			fmt.Printf("Err: value for key: %s isn't Counter", key)
+		}
+	} else {
+		m.data[key] = value
 	}
-
-	foundMetric, isFound := m.metrics[metricName]
-
-	if !isFound {
-		foundMetric = m.AddMetric(metricName)
-	}
-
-	return &foundMetric
 }
 
-func (m *MemStorage) SetMetric(mName MetricName, metric metric.Metric) {
-	m.metrics[mName] = metric
+func (m MemStorage) Get(key MetricName) interface{} {
+	return m.data[key]
 }
 
-func (m *MemStorage) GetMetrics() string {
-	return "123"
+func (m MemStorage) GetAll() map[MetricName]interface{} {
+	return m.data
 }
 
 func CreateStorage() MemStorage {
 	return MemStorage{
-		metrics: make(map[MetricName]metric.Metric),
+		data: make(map[MetricName]interface{}),
 	}
 }
