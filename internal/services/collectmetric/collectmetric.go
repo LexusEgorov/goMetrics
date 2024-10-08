@@ -55,6 +55,14 @@ func CollectMetrics() {
 			switch v := value.Interface().(type) {
 			case float64:
 				agentStorage.AddGauge(storage.MetricName(metricName), storage.Gauge(v))
+			case uint64:
+				agentStorage.AddGauge(storage.MetricName(metricName), storage.Gauge(float64(v)))
+			case uint32:
+				agentStorage.AddGauge(storage.MetricName(metricName), storage.Gauge(float64(v)))
+			case uint16:
+				agentStorage.AddGauge(storage.MetricName(metricName), storage.Gauge(float64(v)))
+			case uint8:
+				agentStorage.AddGauge(storage.MetricName(metricName), storage.Gauge(float64(v)))
 			default:
 				fmt.Printf("Unable to convert metric %s (%s) to a float64\n", metricName, v)
 			}

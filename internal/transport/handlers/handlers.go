@@ -51,7 +51,5 @@ func UpdateMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println(metricStorage.GetAll())
-	fmt.Println("========")
 	w.WriteHeader(http.StatusOK)
 }
