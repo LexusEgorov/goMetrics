@@ -14,7 +14,7 @@ type Transporter interface {
 	UpdateMetric(w http.ResponseWriter, r *http.Request)
 	GetMetric(w http.ResponseWriter, r *http.Request)
 	GetMetrics(w http.ResponseWriter, r *http.Request)
-	SendMetric(metricName, metricType, metricValue string)
+	SendMetric(host, metricName, metricType, metricValue string)
 }
 
 type TransportLayer struct {
@@ -130,8 +130,8 @@ func (t TransportLayer) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (t TransportLayer) SendMetric(metricName, metricType, metricValue string) {
-	url := fmt.Sprintf("http://localhost:8080/update/%s/%s/%s", metricType, metricName, metricValue)
+func (t TransportLayer) SendMetric(host, metricName, metricType, metricValue string) {
+	url := fmt.Sprintf("http://%s/update/%s/%s/%s", host, metricType, metricName, metricValue)
 
 	client := resty.New()
 

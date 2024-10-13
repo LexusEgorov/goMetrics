@@ -55,6 +55,7 @@ type agentIntervals struct {
 type MetricAgent struct {
 	storage   storage.Storager
 	pollCount storage.Counter
+	host      string
 	intervals agentIntervals
 }
 
@@ -107,9 +108,9 @@ func (agent MetricAgent) sendMetrics() {
 		for k, v := range agent.storage.GetAll() {
 			switch metric := v.(type) {
 			case storage.Gauge:
-				transportLayer.SendMetric(string(k), "gauge", metric.String())
+				transportLayer.SendMetric(agent.host, string(k), "gauge", metric.String())
 			case storage.Counter:
-				transportLayer.SendMetric(string(k), "counter", metric.String())
+				transportLayer.SendMetric(agent.host, string(k), "counter", metric.String())
 			default:
 				fmt.Printf("Unknown metric's type: %T\n", v)
 			}
@@ -121,6 +122,10 @@ func (agent MetricAgent) sendMetrics() {
 
 func (agent MetricAgent) Start(stopChan chan struct{}) {
 	fmt.Println("Agent started")
+	fmt.Printf("Host: %s\n", agent.host)
+	fmt.Printf("ReportInterval: %d\n", agent.intervals.send)
+	fmt.Printf("PollInterval: %d\n", agent.intervals.collect)
+
 	go agent.collectMetrics()
 	go agent.sendMetrics()
 
@@ -128,13 +133,14 @@ func (agent MetricAgent) Start(stopChan chan struct{}) {
 	fmt.Println("Agent finished")
 }
 
-func CreateAgent() MetricsCollector {
+func CreateAgent(host string, reportInterval, pollInterval int) MetricsCollector {
 	return &MetricAgent{
 		storage:   storage.CreateStorage(),
 		pollCount: 0,
+		host:      host,
 		intervals: agentIntervals{
-			collect: 2,
-			send:    10,
+			collect: pollInterval,
+			send:    reportInterval,
 		},
 	}
 }

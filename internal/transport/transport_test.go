@@ -78,7 +78,7 @@ func TestTransportLayer_SendMetric(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.tr.SendMetric(tt.args.metricName, tt.args.metricType, tt.args.metricValue)
+			tt.tr.SendMetric("localhost:8080", tt.args.metricName, tt.args.metricType, tt.args.metricValue)
 		})
 	}
 }

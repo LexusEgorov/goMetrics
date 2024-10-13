@@ -17,6 +17,7 @@ func TestCreateAgent(t *testing.T) {
 			want: &MetricAgent{
 				storage:   storage.CreateStorage(),
 				pollCount: 0,
+				host:      "localhost:8080",
 				intervals: agentIntervals{
 					collect: 2,
 					send:    10,
@@ -26,7 +27,7 @@ func TestCreateAgent(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := CreateAgent(); !reflect.DeepEqual(got, tt.want) {
+			if got := CreateAgent("localhost:8080", 10, 2); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("CreateAgent() = %v, want %v", got, tt.want)
 			}
 		})
