@@ -17,6 +17,7 @@ func TestCreateAgent(t *testing.T) {
 			want: &MetricAgent{
 				storage:   storage.CreateStorage(),
 				pollCount: 0,
+				host:      "localhost:8080",
 				intervals: agentIntervals{
 					collect: 2,
 					send:    10,
