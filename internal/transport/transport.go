@@ -135,15 +135,13 @@ func (t TransportLayer) SendMetric(metricName, metricType, metricValue string) {
 
 	client := resty.New()
 
-	response, err := client.R().
+	_, err := client.R().
 		SetHeader("Content-Type", "text/plain").
 		Post(url)
 
 	if err != nil {
 		fmt.Printf("ERROR: %s", err)
 	}
-
-	defer response.RawBody().Close()
 }
 
 func CreateTransport() Transporter {
