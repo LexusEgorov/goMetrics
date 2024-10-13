@@ -52,8 +52,8 @@ func (m MemStorage) GetAll() map[MetricName]interface{} {
 	return m.data
 }
 
-func CreateStorage() MemStorage {
-	return MemStorage{
+func CreateStorage() Storager {
+	return &MemStorage{
 		data: make(map[MetricName]interface{}),
 	}
 }
