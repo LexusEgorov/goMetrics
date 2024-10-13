@@ -17,10 +17,16 @@ func TestCreateStorage(t *testing.T) {
 			},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := CreateStorage(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("CreateStorage() = %v, want %v", got, tt.want)
+			storage := CreateStorage()
+
+			got := storage.GetAll()
+			t.Logf("Got: %v, Want: %v", got, tt.want.data)
+
+			if !reflect.DeepEqual(got, tt.want.data) {
+				t.Errorf("CreateStorage().GetAll() = %v, want %v", got, tt.want.data)
 			}
 		})
 	}
