@@ -4,12 +4,16 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"text/template"
 
 	"github.com/LexusEgorov/goMetrics/internal/services/storage"
+	"github.com/go-resty/resty/v2"
 )
 
 type Transporter interface {
 	UpdateMetric(w http.ResponseWriter, r *http.Request)
+	GetMetric(w http.ResponseWriter, r *http.Request)
+	GetMetrics(w http.ResponseWriter, r *http.Request)
 	SendMetric(metricName, metricType, metricValue string)
 }
 
@@ -18,11 +22,6 @@ type TransportLayer struct {
 }
 
 func (t TransportLayer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
 	mName := r.PathValue("metricName")
 	mType := r.PathValue("metricType")
 	mValue := r.PathValue("metricValue")
@@ -61,17 +60,90 @@ func (t TransportLayer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (t TransportLayer) SendMetric(metricName, metricType, metricValue string) {
-	url := fmt.Sprintf("http://localhost:8080/update/%s/%s/%s", metricType, metricName, metricValue)
-	response, err := http.Post(url, "text/plain", nil)
+func (t TransportLayer) GetMetric(w http.ResponseWriter, r *http.Request) {
+	mName := r.PathValue("metricName")
+	mType := r.PathValue("metricType")
 
-	if err != nil {
-		fmt.Printf("ERR: %s\n", err)
-	} else {
-		fmt.Printf("RESPONSE: %s\n", response.Status)
+	var metric fmt.Stringer
+	var isFound bool
+
+	switch mType {
+	case "gauge":
+		metric, isFound = t.storage.GetGauge(storage.MetricName(mName))
+	case "counter":
+		metric, isFound = t.storage.GetCounter(storage.MetricName(mName))
+	default:
+		w.WriteHeader(http.StatusNotFound)
+		return
 	}
 
-	defer response.Body.Close()
+	if !isFound {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	w.Write([]byte(metric.String()))
+}
+
+type PageData struct {
+	Title   string
+	Header  string
+	Metrics map[storage.MetricName]interface{}
+}
+
+func (t TransportLayer) GetMetrics(w http.ResponseWriter, r *http.Request) {
+	pageData := PageData{
+		Title:   "Metrics",
+		Header:  "Metrics list: ",
+		Metrics: t.storage.GetAll(),
+	}
+
+	page, err := template.New("webpage").
+		Parse(`
+			<!DOCTYPE html>
+				<html lang="ru">
+				<head>
+					<meta charset="UTF-8">
+					<title>{{.Title}}</title>
+				</head>
+				<body>
+					<h1>{{.Header}}</h1>
+					<ul>
+						{{range $key, $value := .Metrics}}
+							<li>{{$key}}: {{$value}}</li>
+						{{end}}
+					</ul>
+				</body>
+			</html>
+		`)
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	err = page.Execute(w, pageData)
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func (t TransportLayer) SendMetric(metricName, metricType, metricValue string) {
+	url := fmt.Sprintf("http://localhost:8080/update/%s/%s/%s", metricType, metricName, metricValue)
+
+	client := resty.New()
+
+	response, err := client.R().
+		SetHeader("Content-Type", "text/plain").
+		Post(url)
+
+	if err != nil {
+		fmt.Printf("ERROR: %s", err)
+	}
+
+	defer response.RawBody().Close()
 }
 
 func CreateTransport() Transporter {

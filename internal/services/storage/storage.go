@@ -9,18 +9,19 @@ type MetricName string
 type Gauge float64
 type Counter int64
 
-func (g Gauge) ToString() string {
+func (g Gauge) String() string {
 	return strconv.FormatFloat(float64(g), 'f', -1, 64)
 }
 
-func (c Counter) ToString() string {
+func (c Counter) String() string {
 	return strconv.Itoa(int(c))
 }
 
 type Storager interface {
 	AddGauge(key MetricName, value Gauge)
 	AddCounter(key MetricName, value Counter)
-	Get(key MetricName) interface{}
+	GetGauge(key MetricName) (Gauge, bool)
+	GetCounter(key MetricName) (Counter, bool)
 	GetAll() map[MetricName]interface{}
 }
 
@@ -44,8 +45,16 @@ func (m *MemStorage) AddCounter(key MetricName, value Counter) {
 	}
 }
 
-func (m MemStorage) Get(key MetricName) interface{} {
-	return m.data[key]
+func (m MemStorage) GetGauge(key MetricName) (Gauge, bool) {
+	value, isFound := m.data[key].(Gauge)
+
+	return value, isFound
+}
+
+func (m MemStorage) GetCounter(key MetricName) (Counter, bool) {
+	value, isFound := m.data[key].(Counter)
+
+	return value, isFound
 }
 
 func (m MemStorage) GetAll() map[MetricName]interface{} {
