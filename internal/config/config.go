@@ -10,7 +10,7 @@ type ServerVariables struct {
 	Host string
 }
 
-func GetServerFlags() ServerVariables {
+func GetServerVars() ServerVariables {
 	var host string
 
 	flag.StringVar(&host, "a", "localhost:8080", "address and port to run server")
@@ -43,7 +43,7 @@ func parseEnv(variable string) int {
 	return int(parsed)
 }
 
-func GetAgentFlags() AgentVariables {
+func GetAgentVars() AgentVariables {
 	var host string
 	var reportInterval int
 	var pollInterval int

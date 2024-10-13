@@ -5,14 +5,14 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/LexusEgorov/goMetrics/internal/config"
 	"github.com/LexusEgorov/goMetrics/internal/services/collectmetric"
-	"github.com/LexusEgorov/goMetrics/internal/services/flags"
 )
 
 func main() {
-	agentFlags := flags.GetAgentFlags()
+	agentVars := config.GetAgentVars()
 
-	run(agentFlags.Host, agentFlags.ReportInterval, agentFlags.PollInterval)
+	run(agentVars.Host, agentVars.ReportInterval, agentVars.PollInterval)
 }
 
 func run(host string, reportInterval, pollInterval int) {

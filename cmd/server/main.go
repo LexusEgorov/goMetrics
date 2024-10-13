@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/LexusEgorov/goMetrics/internal/services/flags"
+	"github.com/LexusEgorov/goMetrics/internal/config"
 	"github.com/LexusEgorov/goMetrics/internal/transport"
 	"github.com/go-chi/chi/v5"
 )
 
 func main() {
-	ServerFlags := flags.GetServerFlags()
+	serverVars := config.GetServerVars()
 
-	if err := run(ServerFlags.Host); err != nil {
+	if err := run(serverVars.Host); err != nil {
 		panic(err)
 	}
 }
