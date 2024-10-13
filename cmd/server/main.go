@@ -3,13 +3,18 @@ package main
 import (
 	"net/http"
 
-	"github.com/LexusEgorov/goMetrics/internal/transport/handlers"
+	"github.com/LexusEgorov/goMetrics/internal/transport"
+	"github.com/go-chi/chi/v5"
 )
 
 func main() {
-	mux := http.NewServeMux()
+	transportLayer := transport.CreateTransport()
 
-	mux.HandleFunc(`/update/{metricType}/{metricName}/{metricValue}`, handlers.UpdateMetric)
+	r := chi.NewRouter()
 
-	http.ListenAndServe(":8080", mux)
+	r.Get("/", transportLayer.GetMetrics)
+	r.Get("/value/{metricType}/{metricName}", transportLayer.GetMetric)
+	r.Post("/update/{metricType}/{metricName}/{metricValue}", transportLayer.UpdateMetric)
+
+	http.ListenAndServe(":8080", r)
 }

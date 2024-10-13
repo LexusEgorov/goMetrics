@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/LexusEgorov/goMetrics/internal/services/storage"
-	"github.com/LexusEgorov/goMetrics/internal/transport/senders"
+	"github.com/LexusEgorov/goMetrics/internal/transport"
 )
 
 var gaugeMetrics = [...]string{
@@ -53,7 +53,7 @@ type agentIntervals struct {
 }
 
 type MetricAgent struct {
-	storage   storage.MemStorage
+	storage   storage.Storager
 	pollCount storage.Counter
 	intervals agentIntervals
 }
@@ -99,15 +99,17 @@ func (agent *MetricAgent) collectMetrics() {
 }
 
 func (agent MetricAgent) sendMetrics() {
+	transportLayer := transport.CreateTransport()
+
 	for {
 		time.Sleep(time.Duration(agent.intervals.send) * time.Second)
 		fmt.Println("Sending started")
 		for k, v := range agent.storage.GetAll() {
 			switch metric := v.(type) {
 			case storage.Gauge:
-				senders.SendMetric(string(k), "gauge", metric.ToString())
+				transportLayer.SendMetric(string(k), "gauge", metric.String())
 			case storage.Counter:
-				senders.SendMetric(string(k), "counter", metric.ToString())
+				transportLayer.SendMetric(string(k), "counter", metric.String())
 			default:
 				fmt.Printf("Unknown metric's type: %T\n", v)
 			}
