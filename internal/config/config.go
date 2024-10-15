@@ -6,11 +6,11 @@ import (
 	"strconv"
 )
 
-type ServerVariables struct {
+type Server struct {
 	Host string
 }
 
-func GetServerVars() ServerVariables {
+func GetServer() Server {
 	var host string
 
 	flag.StringVar(&host, "a", "localhost:8080", "address and port to run server")
@@ -22,12 +22,12 @@ func GetServerVars() ServerVariables {
 		host = envHost
 	}
 
-	return ServerVariables{
+	return Server{
 		Host: host,
 	}
 }
 
-type AgentVariables struct {
+type Agent struct {
 	Host           string
 	ReportInterval int
 	PollInterval   int
@@ -43,7 +43,7 @@ func parseEnv(variable string) int {
 	return int(parsed)
 }
 
-func GetAgentVars() AgentVariables {
+func GetAgent() Agent {
 	var host string
 	var reportInterval int
 	var pollInterval int
@@ -69,7 +69,7 @@ func GetAgentVars() AgentVariables {
 		pollInterval = parseEnv(envPollInterval)
 	}
 
-	return AgentVariables{
+	return Agent{
 		Host:           host,
 		ReportInterval: reportInterval,
 		PollInterval:   pollInterval,

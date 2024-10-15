@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/LexusEgorov/goMetrics/internal/config"
 	"github.com/LexusEgorov/goMetrics/internal/transport"
-	"github.com/go-chi/chi/v5"
 )
 
 func main() {
-	serverVars := config.GetServerVars()
+	serverVars := config.GetServer()
 
 	if err := run(serverVars.Host); err != nil {
 		panic(err)

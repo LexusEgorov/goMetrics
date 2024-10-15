@@ -6,8 +6,9 @@ import (
 	"strconv"
 	"text/template"
 
-	"github.com/LexusEgorov/goMetrics/internal/services/storage"
 	"github.com/go-resty/resty/v2"
+
+	"github.com/LexusEgorov/goMetrics/internal/services/storage"
 )
 
 type Transporter interface {

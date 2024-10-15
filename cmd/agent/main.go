@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	agentVars := config.GetAgentVars()
+	agentVars := config.GetAgent()
 
 	run(agentVars.Host, agentVars.ReportInterval, agentVars.PollInterval)
 }
