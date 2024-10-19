@@ -41,10 +41,8 @@ var gaugeMetrics = [...]string{
 	"TotalAlloc",
 }
 
-type MetricsCollector interface {
-	collectMetrics()
-	sendMetrics()
-	Start(stopChan chan struct{})
+type Transporter interface {
+	SendMetric(host, metricName, metricType, metricValue string)
 }
 
 type agentIntervals struct {
@@ -52,14 +50,22 @@ type agentIntervals struct {
 	send    int
 }
 
-type MetricAgent struct {
-	storage   storage.Storager
+type Storager interface {
+	AddGauge(key storage.MetricName, value storage.Gauge)
+	AddCounter(key storage.MetricName, value storage.Counter)
+	GetGauge(key storage.MetricName) (storage.Gauge, bool)
+	GetCounter(key storage.MetricName) (storage.Counter, bool)
+	GetAll() map[storage.MetricName]interface{}
+}
+
+type metricAgent struct {
+	storage   Storager
 	pollCount storage.Counter
 	host      string
 	intervals agentIntervals
 }
 
-func (agent *MetricAgent) collectMetrics() {
+func (agent *metricAgent) collectMetrics() {
 	for {
 		fmt.Println("Collect started")
 		var memStats runtime.MemStats
@@ -99,8 +105,8 @@ func (agent *MetricAgent) collectMetrics() {
 	}
 }
 
-func (agent MetricAgent) sendMetrics() {
-	transportLayer := transport.CreateTransport()
+func (agent metricAgent) sendMetrics() {
+	var transportLayer Transporter = transport.CreateTransport()
 
 	for {
 		time.Sleep(time.Duration(agent.intervals.send) * time.Second)
@@ -120,7 +126,7 @@ func (agent MetricAgent) sendMetrics() {
 	}
 }
 
-func (agent MetricAgent) Start(stopChan chan struct{}) {
+func (agent metricAgent) Start(stopChan chan struct{}) {
 	fmt.Println("Agent started")
 	fmt.Printf("Host: %s\n", agent.host)
 	fmt.Printf("ReportInterval: %d\n", agent.intervals.send)
@@ -133,8 +139,8 @@ func (agent MetricAgent) Start(stopChan chan struct{}) {
 	fmt.Println("Agent finished")
 }
 
-func CreateAgent(host string, reportInterval, pollInterval int) MetricsCollector {
-	return &MetricAgent{
+func CreateAgent(host string, reportInterval, pollInterval int) *metricAgent {
+	return &metricAgent{
 		storage:   storage.CreateStorage(),
 		pollCount: 0,
 		host:      host,

@@ -10,6 +10,12 @@ import (
 	"github.com/LexusEgorov/goMetrics/internal/transport"
 )
 
+type Transporter interface {
+	UpdateMetric(w http.ResponseWriter, r *http.Request)
+	GetMetric(w http.ResponseWriter, r *http.Request)
+	GetMetrics(w http.ResponseWriter, r *http.Request)
+}
+
 func main() {
 	serverVars := config.GetServer()
 
@@ -19,7 +25,7 @@ func main() {
 }
 
 func run(host string) error {
-	transportLayer := transport.CreateTransport()
+	var transportLayer Transporter = transport.CreateTransport()
 
 	r := chi.NewRouter()
 

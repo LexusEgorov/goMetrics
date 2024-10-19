@@ -10,11 +10,11 @@ import (
 func TestCreateAgent(t *testing.T) {
 	tests := []struct {
 		name string
-		want MetricsCollector
+		want *metricAgent
 	}{
 		{
 			name: "DefaultAgent",
-			want: &MetricAgent{
+			want: &metricAgent{
 				storage:   storage.CreateStorage(),
 				pollCount: 0,
 				host:      "localhost:8080",

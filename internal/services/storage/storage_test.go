@@ -8,11 +8,11 @@ import (
 func TestCreateStorage(t *testing.T) {
 	tests := []struct {
 		name string
-		want MemStorage
+		want memStorage
 	}{
 		{
 			name: "Test create storage",
-			want: MemStorage{
+			want: memStorage{
 				data: make(map[MetricName]interface{}),
 			},
 		},
@@ -39,12 +39,12 @@ func TestMemStorage_AddGauge(t *testing.T) {
 	}
 	tests := []struct {
 		name string
-		m    *MemStorage
+		m    *memStorage
 		args args
 	}{
 		{
 			name: "Test AddGauge",
-			m: &MemStorage{
+			m: &memStorage{
 				data: make(map[MetricName]interface{}),
 			},
 			args: args{
@@ -67,7 +67,7 @@ func TestMemStorage_AddGauge(t *testing.T) {
 func TestMemStorage_GetAll(t *testing.T) {
 	tests := []struct {
 		name string
-		m    MemStorage
+		m    memStorage
 		want map[MetricName]interface{}
 	}{
 		// TODO: Add test cases.
@@ -75,7 +75,7 @@ func TestMemStorage_GetAll(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.m.GetAll(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("MemStorage.GetAll() = %v, want %v", got, tt.want)
+				t.Errorf("memStorage.GetAll() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -87,7 +87,7 @@ func TestMemStorage_GetCounter(t *testing.T) {
 	}
 	tests := []struct {
 		name  string
-		m     MemStorage
+		m     memStorage
 		args  args
 		want  Counter
 		want1 bool
@@ -98,10 +98,10 @@ func TestMemStorage_GetCounter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, got1 := tt.m.GetCounter(tt.args.key)
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("MemStorage.GetCounter() got = %v, want %v", got, tt.want)
+				t.Errorf("memStorage.GetCounter() got = %v, want %v", got, tt.want)
 			}
 			if got1 != tt.want1 {
-				t.Errorf("MemStorage.GetCounter() got1 = %v, want %v", got1, tt.want1)
+				t.Errorf("memStorage.GetCounter() got1 = %v, want %v", got1, tt.want1)
 			}
 		})
 	}
@@ -113,7 +113,7 @@ func TestMemStorage_GetGauge(t *testing.T) {
 	}
 	tests := []struct {
 		name  string
-		m     MemStorage
+		m     memStorage
 		args  args
 		want  Gauge
 		want1 bool
@@ -124,10 +124,10 @@ func TestMemStorage_GetGauge(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, got1 := tt.m.GetGauge(tt.args.key)
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("MemStorage.GetGauge() got = %v, want %v", got, tt.want)
+				t.Errorf("memStorage.GetGauge() got = %v, want %v", got, tt.want)
 			}
 			if got1 != tt.want1 {
-				t.Errorf("MemStorage.GetGauge() got1 = %v, want %v", got1, tt.want1)
+				t.Errorf("memStorage.GetGauge() got1 = %v, want %v", got1, tt.want1)
 			}
 		})
 	}
@@ -140,7 +140,7 @@ func TestMemStorage_AddCounter(t *testing.T) {
 	}
 	tests := []struct {
 		name string
-		m    *MemStorage
+		m    *memStorage
 		args args
 	}{
 		// TODO: Add test cases.

@@ -9,6 +9,12 @@ import (
 	"github.com/LexusEgorov/goMetrics/internal/services/collectmetric"
 )
 
+type MetricsCollector interface {
+	collectMetrics()
+	sendMetrics()
+	Start(stopChan chan struct{})
+}
+
 func main() {
 	agentVars := config.GetAgent()
 
@@ -16,7 +22,7 @@ func main() {
 }
 
 func run(host string, reportInterval, pollInterval int) {
-	agent := collectmetric.CreateAgent(host, reportInterval, pollInterval)
+	var agent = collectmetric.CreateAgent(host, reportInterval, pollInterval)
 
 	stopChan := make(chan struct{})
 	signalChan := make(chan os.Signal, 1)

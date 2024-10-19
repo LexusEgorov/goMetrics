@@ -13,7 +13,7 @@ func TestTransportLayer_UpdateMetric(t *testing.T) {
 	}
 	tests := []struct {
 		name string
-		tr   TransportLayer
+		tr   transportLayer
 		args args
 	}{
 		// TODO: Add test cases.
@@ -32,7 +32,7 @@ func TestTransportLayer_GetMetric(t *testing.T) {
 	}
 	tests := []struct {
 		name string
-		tr   TransportLayer
+		tr   transportLayer
 		args args
 	}{
 		// TODO: Add test cases.
@@ -51,7 +51,7 @@ func TestTransportLayer_GetMetrics(t *testing.T) {
 	}
 	tests := []struct {
 		name string
-		tr   TransportLayer
+		tr   transportLayer
 		args args
 	}{
 		// TODO: Add test cases.
@@ -71,7 +71,7 @@ func TestTransportLayer_SendMetric(t *testing.T) {
 	}
 	tests := []struct {
 		name string
-		tr   TransportLayer
+		tr   transportLayer
 		args args
 	}{
 		// TODO: Add test cases.
@@ -86,7 +86,7 @@ func TestTransportLayer_SendMetric(t *testing.T) {
 func TestCreateTransport(t *testing.T) {
 	tests := []struct {
 		name string
-		want Transporter
+		want transportLayer
 	}{
 		// TODO: Add test cases.
 	}

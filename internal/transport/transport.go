@@ -11,18 +11,19 @@ import (
 	"github.com/LexusEgorov/goMetrics/internal/services/storage"
 )
 
-type Transporter interface {
-	UpdateMetric(w http.ResponseWriter, r *http.Request)
-	GetMetric(w http.ResponseWriter, r *http.Request)
-	GetMetrics(w http.ResponseWriter, r *http.Request)
-	SendMetric(host, metricName, metricType, metricValue string)
+type Storager interface {
+	AddGauge(key storage.MetricName, value storage.Gauge)
+	AddCounter(key storage.MetricName, value storage.Counter)
+	GetGauge(key storage.MetricName) (storage.Gauge, bool)
+	GetCounter(key storage.MetricName) (storage.Counter, bool)
+	GetAll() map[storage.MetricName]interface{}
 }
 
-type TransportLayer struct {
-	storage storage.Storager
+type transportLayer struct {
+	storage Storager
 }
 
-func (t TransportLayer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
+func (t transportLayer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 	mName := r.PathValue("metricName")
 	mType := r.PathValue("metricType")
 	mValue := r.PathValue("metricValue")
@@ -61,7 +62,7 @@ func (t TransportLayer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (t TransportLayer) GetMetric(w http.ResponseWriter, r *http.Request) {
+func (t transportLayer) GetMetric(w http.ResponseWriter, r *http.Request) {
 	mName := r.PathValue("metricName")
 	mType := r.PathValue("metricType")
 
@@ -92,7 +93,7 @@ type PageData struct {
 	Metrics map[storage.MetricName]interface{}
 }
 
-func (t TransportLayer) GetMetrics(w http.ResponseWriter, r *http.Request) {
+func (t transportLayer) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	pageData := PageData{
 		Title:   "Metrics",
 		Header:  "Metrics list: ",
@@ -131,7 +132,7 @@ func (t TransportLayer) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (t TransportLayer) SendMetric(host, metricName, metricType, metricValue string) {
+func (t transportLayer) SendMetric(host, metricName, metricType, metricValue string) {
 	url := fmt.Sprintf("http://%s/update/%s/%s/%s", host, metricType, metricName, metricValue)
 
 	client := resty.New()
@@ -145,8 +146,8 @@ func (t TransportLayer) SendMetric(host, metricName, metricType, metricValue str
 	}
 }
 
-func CreateTransport() Transporter {
-	return TransportLayer{
+func CreateTransport() *transportLayer {
+	return &transportLayer{
 		storage: storage.CreateStorage(),
 	}
 }
