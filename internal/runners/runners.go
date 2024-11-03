@@ -8,7 +8,9 @@ import (
 	"syscall"
 
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 
+	"github.com/LexusEgorov/goMetrics/internal/middleware"
 	"github.com/LexusEgorov/goMetrics/internal/services/collectmetric"
 	"github.com/LexusEgorov/goMetrics/internal/transport"
 )
@@ -22,13 +24,23 @@ type Transporter interface {
 type serverRunner struct{}
 
 func (s serverRunner) Run(host string) error {
+	logger, err := zap.NewDevelopment()
+
+	if err != nil {
+		panic(err)
+	}
+
+	defer logger.Sync()
+
+	sugar := logger.Sugar()
+
 	var transportLayer Transporter = transport.CreateTransport()
 
 	r := chi.NewRouter()
 
-	r.Get("/", transportLayer.GetMetrics)
-	r.Get("/value/{metricType}/{metricName}", transportLayer.GetMetric)
-	r.Post("/update/{metricType}/{metricName}/{metricValue}", transportLayer.UpdateMetric)
+	r.Get("/", middleware.WithLogging(http.HandlerFunc(transportLayer.GetMetrics), sugar))
+	r.Get("/value/{metricType}/{metricName}", middleware.WithLogging(http.HandlerFunc(transportLayer.GetMetric), sugar))
+	r.Post("/update/{metricType}/{metricName}/{metricValue}", middleware.WithLogging(http.HandlerFunc(transportLayer.UpdateMetric), sugar))
 
 	fmt.Println("Running server on", host)
 	return http.ListenAndServe(host, r)

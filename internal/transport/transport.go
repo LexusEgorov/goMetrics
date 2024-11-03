@@ -28,8 +28,6 @@ func (t transportLayer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 	mType := r.PathValue("metricType")
 	mValue := r.PathValue("metricValue")
 
-	fmt.Printf("Name: %s\nType: %s\nValue: %s\n ============\n", mName, mType, mValue)
-
 	if mName == "" || mValue == "" {
 		w.WriteHeader(http.StatusNotFound)
 		return
