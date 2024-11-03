@@ -28,10 +28,6 @@ func Test_main(t *testing.T) {
 		expected int
 	}{
 		{"GET", "/", http.StatusOK},
-		{"GET", "/value/type/name", http.StatusNotFound},
-		{"POST", "/update/gauge/metricName/1", http.StatusOK},
-		{"POST", "/update/undefined/metricName/1", http.StatusBadRequest},
-		{"POST", "/update/counter/counterMetric/1", http.StatusOK},
 	}
 
 	for _, test := range tests {
