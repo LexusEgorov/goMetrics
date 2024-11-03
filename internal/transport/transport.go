@@ -32,7 +32,58 @@ type transportLayer struct {
 	storage Storager
 }
 
+func (t transportLayer) updateMetricOld(w http.ResponseWriter, r *http.Request) {
+	mName := r.PathValue("metricName")
+	mType := r.PathValue("metricType")
+	mValue := r.PathValue("metricValue")
+
+	fmt.Printf("Name: %s\nType: %s\nValue: %s\n ============\n", mName, mType, mValue)
+
+	if mName == "" || mValue == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	switch mType {
+	case "gauge":
+		value, err := strconv.ParseFloat(mValue, 64)
+
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		t.storage.AddGauge(storage.MetricName(mName), storage.Gauge(value))
+	case "counter":
+		value, err := strconv.ParseInt(mValue, 0, 64)
+
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		t.storage.AddCounter(storage.MetricName(mName), storage.Counter(value))
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func (t transportLayer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
+	contentType := r.Header.Get("Content-Type")
+
+	if contentType == "text/plain" {
+		t.updateMetricOld(w, r)
+		return
+	}
+
+	if contentType != "application/json" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	var currentMetric Metric
 	var buf bytes.Buffer
 
