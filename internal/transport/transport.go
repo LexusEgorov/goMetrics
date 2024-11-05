@@ -32,7 +32,7 @@ type transportLayer struct {
 	storage Storager
 }
 
-func (t transportLayer) updateMetricOld(w http.ResponseWriter, r *http.Request) {
+func (t transportLayer) UpdateMetricOld(w http.ResponseWriter, r *http.Request) {
 	mName := r.PathValue("metricName")
 	mType := r.PathValue("metricType")
 	mValue := r.PathValue("metricValue")
@@ -74,11 +74,6 @@ func (t transportLayer) updateMetricOld(w http.ResponseWriter, r *http.Request) 
 func (t transportLayer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-Type")
 
-	if contentType == "text/plain" {
-		t.updateMetricOld(w, r)
-		return
-	}
-
 	if contentType != "application/json" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -118,10 +113,19 @@ func (t transportLayer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	response, err := json.Marshal(currentMetric)
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(response)
 	w.WriteHeader(http.StatusOK)
 }
 
-func (t transportLayer) GetMetric(w http.ResponseWriter, r *http.Request) {
+func (t transportLayer) GetMetricOld(w http.ResponseWriter, r *http.Request) {
 	mName := r.PathValue("metricName")
 	mType := r.PathValue("metricType")
 
@@ -146,6 +150,58 @@ func (t transportLayer) GetMetric(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(metric.String()))
 }
 
+func (t transportLayer) GetMetric(w http.ResponseWriter, r *http.Request) {
+	contentType := r.Header.Get("Content-Type")
+
+	if contentType == "text/plain" {
+		t.GetMetricOld(w, r)
+		return
+	}
+
+	mName := r.PathValue("metricName")
+	mType := r.PathValue("metricType")
+
+	currentMetric := Metric{
+		ID:    mName,
+		MType: mType,
+	}
+
+	switch mType {
+	case "gauge":
+		metric, isFound := t.storage.GetGauge(storage.MetricName(mName))
+
+		if isFound {
+			var value float64 = float64(metric)
+			currentMetric.Value = &value
+		}
+	case "counter":
+		metric, isFound := t.storage.GetCounter(storage.MetricName(mName))
+		if isFound {
+			var value int64 = int64(metric)
+			currentMetric.Delta = &value
+		}
+	default:
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	if currentMetric.Delta == nil && currentMetric.Value == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	response, err := json.Marshal(currentMetric)
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(response)
+	w.WriteHeader(http.StatusOK)
+}
+
 type PageData struct {
 	Title   string
 	Header  string
@@ -153,6 +209,37 @@ type PageData struct {
 }
 
 func (t transportLayer) GetMetrics(w http.ResponseWriter, r *http.Request) {
+	contentType := r.Header.Get("Content-Type")
+
+	if contentType != "application/json" {
+		t.GetMetricsOld(w, r)
+		return
+	}
+
+	metrics := t.storage.GetAll()
+	responseMetrics := make([]Metric, 0)
+
+	for mName, metric := range metrics {
+		currentMetric := Metric{
+			ID: string(mName),
+		}
+
+		switch v := metric.(type) {
+		case float64:
+			currentMetric.MType = "gauge"
+			currentMetric.Value = &v
+		case int64:
+			currentMetric.MType = "counter"
+			currentMetric.Delta = &v
+		default:
+			continue
+		}
+
+		responseMetrics = append(responseMetrics, currentMetric)
+	}
+}
+
+func (t transportLayer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
 	pageData := PageData{
 		Title:   "Metrics",
 		Header:  "Metrics list: ",
@@ -243,7 +330,7 @@ func (t transportLayer) SendMetric(host, metricName, metricType, metricValue str
 	}
 }
 
-func CreateTransport() *transportLayer {
+func NewTransport() *transportLayer {
 	return &transportLayer{
 		storage: storage.CreateStorage(),
 	}

@@ -10,7 +10,7 @@ import (
 )
 
 func setupRouter() *chi.Mux {
-	transportLayer := transport.CreateTransport()
+	transportLayer := transport.NewTransport()
 	r := chi.NewRouter()
 	r.Get("/", transportLayer.GetMetrics)
 	r.Get("/value/{metricType}/{metricName}", transportLayer.GetMetric)

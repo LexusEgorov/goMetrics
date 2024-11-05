@@ -106,7 +106,7 @@ func (agent *metricAgent) collectMetrics() {
 }
 
 func (agent metricAgent) sendMetrics() {
-	var transportLayer Transporter = transport.CreateTransport()
+	var transportLayer Transporter = transport.NewTransport()
 
 	for {
 		time.Sleep(time.Duration(agent.intervals.send) * time.Second)

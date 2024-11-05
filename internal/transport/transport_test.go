@@ -92,7 +92,7 @@ func TestCreateTransport(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := CreateTransport(); !reflect.DeepEqual(got, tt.want) {
+			if got := NewTransport(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("CreateTransport() = %v, want %v", got, tt.want)
 			}
 		})

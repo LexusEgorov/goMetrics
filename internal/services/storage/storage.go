@@ -1,60 +1,56 @@
 package storage
 
-import (
-	"fmt"
-	"strconv"
-)
-
-type MetricName string
-type Gauge float64
-type Counter int64
-
-func (g Gauge) String() string {
-	return strconv.FormatFloat(float64(g), 'f', -1, 64)
-}
-
-func (c Counter) String() string {
-	return strconv.Itoa(int(c))
+type Metric struct {
+	ID    string   `json:"id"`
+	MType string   `json:"type"`
+	Delta *int64   `json:"delta,omitempty"`
+	Value *float64 `json:"value,omitempty"`
 }
 
 type memStorage struct {
-	data map[MetricName]interface{}
+	data map[string]Metric
 }
 
-func (m *memStorage) AddGauge(key MetricName, value Gauge) {
-	m.data[key] = value
-}
-
-func (m *memStorage) AddCounter(key MetricName, value Counter) {
-	if existing, ok := m.data[key]; ok {
-		if counterValue, ok := existing.(Counter); ok {
-			m.data[key] = counterValue + value
-		} else {
-			fmt.Printf("Err: value for key: %s isn't Counter", key)
-		}
-	} else {
-		m.data[key] = value
+func (m *memStorage) AddGauge(key string, value float64) {
+	m.data[key] = Metric{
+		ID:    key,
+		MType: "gauge",
+		Value: &value,
 	}
 }
 
-func (m memStorage) GetGauge(key MetricName) (Gauge, bool) {
-	value, isFound := m.data[key].(Gauge)
-
-	return value, isFound
+func (m *memStorage) AddCounter(key string, value int64) {
+	if metric, ok := m.data[key]; ok {
+		delta := value + *m.data[key].Delta
+		metric.Delta = &delta
+		m.data[key] = metric
+	} else {
+		m.data[key] = Metric{
+			ID:    key,
+			MType: "counter",
+			Delta: &value,
+		}
+	}
 }
 
-func (m memStorage) GetCounter(key MetricName) (Counter, bool) {
-	value, isFound := m.data[key].(Counter)
+func (m memStorage) GetGauge(key string) (float64, bool) {
+	metric, isFound := m.data[key]
 
-	return value, isFound
+	return *metric.Value, isFound
 }
 
-func (m memStorage) GetAll() map[MetricName]interface{} {
+func (m memStorage) GetCounter(key string) (int64, bool) {
+	metric, isFound := m.data[key]
+
+	return *metric.Delta, isFound
+}
+
+func (m memStorage) GetAll() map[string]Metric {
 	return m.data
 }
 
 func CreateStorage() *memStorage {
 	return &memStorage{
-		data: make(map[MetricName]interface{}),
+		data: make(map[string]Metric),
 	}
 }
