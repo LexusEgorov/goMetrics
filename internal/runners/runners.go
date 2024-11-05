@@ -55,7 +55,7 @@ func NewServer() *serverRunner {
 type agentRunner struct{}
 
 func (a agentRunner) Run(host string, reportInterval, pollInterval int) {
-	var agent = collectmetric.CreateAgent(host, reportInterval, pollInterval)
+	var agent = collectmetric.NewAgent(host, reportInterval, pollInterval)
 
 	stopChan := make(chan struct{})
 	signalChan := make(chan os.Signal, 1)

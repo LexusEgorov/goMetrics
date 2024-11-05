@@ -49,7 +49,7 @@ func (m memStorage) GetAll() map[string]Metric {
 	return m.data
 }
 
-func CreateStorage() *memStorage {
+func NewStorage() *memStorage {
 	return &memStorage{
 		data: make(map[string]Metric),
 	}

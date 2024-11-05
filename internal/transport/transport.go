@@ -21,11 +21,11 @@ type Metric struct {
 }
 
 type Storager interface {
-	AddGauge(key storage.MetricName, value storage.Gauge)
-	AddCounter(key storage.MetricName, value storage.Counter)
-	GetGauge(key storage.MetricName) (storage.Gauge, bool)
-	GetCounter(key storage.MetricName) (storage.Counter, bool)
-	GetAll() map[storage.MetricName]interface{}
+	AddGauge(key string, value float64)
+	AddCounter(key string, value int64)
+	GetGauge(key string) (float64, bool)
+	GetCounter(key string) (int64, bool)
+	GetAll() map[string]storage.Metric
 }
 
 type transportLayer struct {
@@ -53,7 +53,7 @@ func (t transportLayer) UpdateMetricOld(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		t.storage.AddGauge(storage.MetricName(mName), storage.Gauge(value))
+		t.storage.AddGauge(mName, float64(value))
 	case "counter":
 		value, err := strconv.ParseInt(mValue, 0, 64)
 
@@ -62,7 +62,7 @@ func (t transportLayer) UpdateMetricOld(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		t.storage.AddCounter(storage.MetricName(mName), storage.Counter(value))
+		t.storage.AddCounter(mName, int64(value))
 	default:
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -105,9 +105,9 @@ func (t transportLayer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 
 	switch mType {
 	case "gauge":
-		t.storage.AddGauge(storage.MetricName(mName), storage.Gauge(*mValue))
+		t.storage.AddGauge(mName, float64(*mValue))
 	case "counter":
-		t.storage.AddCounter(storage.MetricName(mName), storage.Counter(*mDelta))
+		t.storage.AddCounter(mName, int64(*mDelta))
 	default:
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -129,14 +129,14 @@ func (t transportLayer) GetMetricOld(w http.ResponseWriter, r *http.Request) {
 	mName := r.PathValue("metricName")
 	mType := r.PathValue("metricType")
 
-	var metric fmt.Stringer
+	var metric interface{}
 	var isFound bool
 
 	switch mType {
 	case "gauge":
-		metric, isFound = t.storage.GetGauge(storage.MetricName(mName))
+		metric, isFound = t.storage.GetGauge(mName)
 	case "counter":
-		metric, isFound = t.storage.GetCounter(storage.MetricName(mName))
+		metric, isFound = t.storage.GetCounter(mName)
 	default:
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -147,7 +147,7 @@ func (t transportLayer) GetMetricOld(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write([]byte(metric.String()))
+	w.Write([]byte(fmt.Sprint(metric)))
 }
 
 func (t transportLayer) GetMetric(w http.ResponseWriter, r *http.Request) {
@@ -168,14 +168,14 @@ func (t transportLayer) GetMetric(w http.ResponseWriter, r *http.Request) {
 
 	switch mType {
 	case "gauge":
-		metric, isFound := t.storage.GetGauge(storage.MetricName(mName))
+		metric, isFound := t.storage.GetGauge(mName)
 
 		if isFound {
 			var value float64 = float64(metric)
 			currentMetric.Value = &value
 		}
 	case "counter":
-		metric, isFound := t.storage.GetCounter(storage.MetricName(mName))
+		metric, isFound := t.storage.GetCounter(mName)
 		if isFound {
 			var value int64 = int64(metric)
 			currentMetric.Delta = &value
@@ -205,7 +205,7 @@ func (t transportLayer) GetMetric(w http.ResponseWriter, r *http.Request) {
 type PageData struct {
 	Title   string
 	Header  string
-	Metrics map[storage.MetricName]interface{}
+	Metrics map[string]storage.Metric
 }
 
 func (t transportLayer) GetMetrics(w http.ResponseWriter, r *http.Request) {
@@ -217,26 +217,16 @@ func (t transportLayer) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	metrics := t.storage.GetAll()
-	responseMetrics := make([]Metric, 0)
+	response, err := json.Marshal(metrics)
 
-	for mName, metric := range metrics {
-		currentMetric := Metric{
-			ID: string(mName),
-		}
-
-		switch v := metric.(type) {
-		case float64:
-			currentMetric.MType = "gauge"
-			currentMetric.Value = &v
-		case int64:
-			currentMetric.MType = "counter"
-			currentMetric.Delta = &v
-		default:
-			continue
-		}
-
-		responseMetrics = append(responseMetrics, currentMetric)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(response)
+	w.WriteHeader(http.StatusOK)
 }
 
 func (t transportLayer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
@@ -249,19 +239,19 @@ func (t transportLayer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
 	page, err := template.New("webpage").
 		Parse(`
 			<!DOCTYPE html>
-				<html lang="ru">
-				<head>
-					<meta charset="UTF-8">
-					<title>{{.Title}}</title>
-				</head>
-				<body>
-					<h1>{{.Header}}</h1>
-					<ul>
-						{{range $key, $value := .Metrics}}
-							<li>{{$key}}: {{$value}}</li>
-						{{end}}
-					</ul>
-				</body>
+			<html lang="ru">
+			<head>
+				<meta charset="UTF-8">
+				<title>{{.Title}}</title>
+			</head>
+			<body>
+				<h1>{{.Header}}</h1>
+				<ul>
+					{{range .Metrics}}
+						<li>ID: {{.ID}}, Type: {{.MType}}, Delta: {{if .Delta}}{{.Delta}}{{else}}N/A{{end}}, Value: {{if .Value}}{{.Value}}{{else}}N/A{{end}}</li>
+					{{end}}
+				</ul>
+			</body>
 			</html>
 		`)
 
@@ -332,6 +322,6 @@ func (t transportLayer) SendMetric(host, metricName, metricType, metricValue str
 
 func NewTransport() *transportLayer {
 	return &transportLayer{
-		storage: storage.CreateStorage(),
+		storage: storage.NewStorage(),
 	}
 }
