@@ -153,7 +153,7 @@ func (t transportLayer) GetMetricOld(w http.ResponseWriter, r *http.Request) {
 func (t transportLayer) GetMetric(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-Type")
 
-	if contentType == "text/plain" {
+	if contentType != "application/json" {
 		t.GetMetricOld(w, r)
 		return
 	}

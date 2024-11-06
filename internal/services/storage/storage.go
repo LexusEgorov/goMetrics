@@ -36,11 +36,19 @@ func (m *memStorage) AddCounter(key string, value int64) {
 func (m memStorage) GetGauge(key string) (float64, bool) {
 	metric, isFound := m.data[key]
 
+	if metric.Value == nil {
+		return 0, false
+	}
+
 	return *metric.Value, isFound
 }
 
 func (m memStorage) GetCounter(key string) (int64, bool) {
 	metric, isFound := m.data[key]
+
+	if metric.Delta == nil {
+		return 0, false
+	}
 
 	return *metric.Delta, isFound
 }
