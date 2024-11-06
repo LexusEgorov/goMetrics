@@ -171,13 +171,13 @@ func (t transportLayer) GetMetric(w http.ResponseWriter, r *http.Request) {
 		metric, isFound := t.storage.GetGauge(mName)
 
 		if isFound {
-			var value float64 = float64(metric)
+			value := float64(metric)
 			currentMetric.Value = &value
 		}
 	case "counter":
 		metric, isFound := t.storage.GetCounter(mName)
 		if isFound {
-			var value int64 = int64(metric)
+			value := int64(metric)
 			currentMetric.Delta = &value
 		}
 	default:
