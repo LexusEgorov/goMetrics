@@ -158,24 +158,30 @@ func (t transportLayer) GetMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mName := r.PathValue("metricName")
-	mType := r.PathValue("metricType")
+	var currentMetric Metric
+	var buf bytes.Buffer
 
-	currentMetric := Metric{
-		ID:    mName,
-		MType: mType,
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
-	switch mType {
+	if err = json.Unmarshal(buf.Bytes(), &currentMetric); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	switch currentMetric.MType {
 	case "gauge":
-		metric, isFound := t.storage.GetGauge(mName)
+		metric, isFound := t.storage.GetGauge(currentMetric.ID)
 
 		if isFound {
 			value := float64(metric)
 			currentMetric.Value = &value
 		}
 	case "counter":
-		metric, isFound := t.storage.GetCounter(mName)
+		metric, isFound := t.storage.GetCounter(currentMetric.ID)
 		if isFound {
 			value := int64(metric)
 			currentMetric.Delta = &value
@@ -270,6 +276,7 @@ func (t transportLayer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
 
 func (t transportLayer) SendMetric(host, metricName, metricType, metricValue string) {
 	url := fmt.Sprintf("http://%s/update/%s/%s/%s", host, metricType, metricName, metricValue)
+	//url := fmt.Sprintf("http://%s/update", host)
 
 	client := resty.New()
 

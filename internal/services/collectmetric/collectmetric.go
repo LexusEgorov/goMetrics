@@ -114,9 +114,9 @@ func (agent metricAgent) sendMetrics() {
 		for k, metric := range agent.storage.GetAll() {
 			switch metric.MType {
 			case "gauge":
-				transportLayer.SendMetric(agent.host, string(k), metric.MType, fmt.Sprint(metric.Value))
+				transportLayer.SendMetric(agent.host, string(k), metric.MType, fmt.Sprint(&metric.Value))
 			case "counter":
-				transportLayer.SendMetric(agent.host, string(k), metric.MType, fmt.Sprint(metric.Delta))
+				transportLayer.SendMetric(agent.host, string(k), metric.MType, fmt.Sprint(&metric.Delta))
 			default:
 				fmt.Printf("Unknown metric's type: %T\n", metric.MType)
 			}
