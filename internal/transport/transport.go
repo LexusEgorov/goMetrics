@@ -289,7 +289,7 @@ func (t transportLayer) SendMetric(host, metricName, metricType, metricValue str
 		gaugeValue, err := strconv.ParseFloat(metricValue, 64)
 
 		if err != nil {
-			fmt.Printf("ERROR: %s\n", err)
+			fmt.Printf("VALUE: %s, ERROR: %s\n", metricValue, err)
 			return
 		}
 
