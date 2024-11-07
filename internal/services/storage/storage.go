@@ -1,18 +1,17 @@
 package storage
 
-type Metric struct {
-	ID    string   `json:"id"`
-	MType string   `json:"type"`
-	Delta *int64   `json:"delta,omitempty"`
-	Value *float64 `json:"value,omitempty"`
-}
+import (
+	"github.com/LexusEgorov/goMetrics/internal/models"
+	"github.com/LexusEgorov/goMetrics/internal/services/reader"
+	"github.com/LexusEgorov/goMetrics/internal/services/saver"
+)
 
 type memStorage struct {
-	data map[string]Metric
+	data map[string]models.Metric
 }
 
 func (m *memStorage) AddGauge(key string, value float64) {
-	m.data[key] = Metric{
+	m.data[key] = models.Metric{
 		ID:    key,
 		MType: "gauge",
 		Value: &value,
@@ -25,7 +24,7 @@ func (m *memStorage) AddCounter(key string, value int64) {
 		metric.Delta = &delta
 		m.data[key] = metric
 	} else {
-		m.data[key] = Metric{
+		m.data[key] = models.Metric{
 			ID:    key,
 			MType: "counter",
 			Delta: &value,
@@ -53,12 +52,14 @@ func (m memStorage) GetCounter(key string) (int64, bool) {
 	return *metric.Delta, isFound
 }
 
-func (m memStorage) GetAll() map[string]Metric {
+func (m memStorage) GetAll() map[string]models.Metric {
 	return m.data
 }
 
-func NewStorage() *memStorage {
-	return &memStorage{
-		data: make(map[string]Metric),
+func NewStorage() (saver.Storager, reader.Storager) {
+	storage := &memStorage{
+		data: make(map[string]models.Metric),
 	}
+
+	return storage, storage
 }

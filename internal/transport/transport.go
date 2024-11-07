@@ -8,28 +8,28 @@ import (
 	"strconv"
 	"text/template"
 
+	"github.com/go-chi/chi"
 	"github.com/go-resty/resty/v2"
+	"go.uber.org/zap"
 
-	"github.com/LexusEgorov/goMetrics/internal/services/storage"
+	"github.com/LexusEgorov/goMetrics/internal/dohSimpson"
+	"github.com/LexusEgorov/goMetrics/internal/middleware"
+	"github.com/LexusEgorov/goMetrics/internal/models"
 )
 
-type Metric struct {
-	ID    string   `json:"id"`
-	MType string   `json:"type"`
-	Delta *int64   `json:"delta,omitempty"`
-	Value *float64 `json:"value,omitempty"`
+type Saver interface {
+	SaveOld(mName, mType, value string) *dohSimpson.Error
+	Save(m models.Metric) (*models.Metric, *dohSimpson.Error)
 }
 
-type Storager interface {
-	AddGauge(key string, value float64)
-	AddCounter(key string, value int64)
-	GetGauge(key string) (float64, bool)
-	GetCounter(key string) (int64, bool)
-	GetAll() map[string]storage.Metric
+type Reader interface {
+	Read(key, mType string) (*models.Metric, *dohSimpson.Error)
+	ReadAll() map[string]models.Metric
 }
 
 type transportLayer struct {
-	storage Storager
+	reader Reader
+	saver  Saver
 }
 
 func (t transportLayer) UpdateMetricOld(w http.ResponseWriter, r *http.Request) {
@@ -37,34 +37,10 @@ func (t transportLayer) UpdateMetricOld(w http.ResponseWriter, r *http.Request) 
 	mType := r.PathValue("metricType")
 	mValue := r.PathValue("metricValue")
 
-	fmt.Printf("Name: %s\nType: %s\nValue: %s\n ============\n", mName, mType, mValue)
+	saveError := t.saver.SaveOld(mName, mType, mValue)
 
-	if mName == "" || mValue == "" {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	switch mType {
-	case "gauge":
-		value, err := strconv.ParseFloat(mValue, 64)
-
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		t.storage.AddGauge(mName, float64(value))
-	case "counter":
-		value, err := strconv.ParseInt(mValue, 0, 64)
-
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		t.storage.AddCounter(mName, int64(value))
-	default:
-		w.WriteHeader(http.StatusBadRequest)
+	if saveError != nil {
+		w.WriteHeader(saveError.Code)
 		return
 	}
 
@@ -79,7 +55,7 @@ func (t transportLayer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var currentMetric Metric
+	var currentMetric models.Metric
 	var buf bytes.Buffer
 
 	_, err := buf.ReadFrom(r.Body)
@@ -93,27 +69,14 @@ func (t transportLayer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mName := currentMetric.ID
-	mType := currentMetric.MType
-	mValue := currentMetric.Value
-	mDelta := currentMetric.Delta
+	savedMetric, saveError := t.saver.Save(currentMetric)
 
-	if mName == "" || (mValue == nil && mDelta == nil) {
-		w.WriteHeader(http.StatusNotFound)
+	if saveError != nil {
+		w.WriteHeader(saveError.Code)
 		return
 	}
 
-	switch mType {
-	case "gauge":
-		t.storage.AddGauge(mName, float64(*mValue))
-	case "counter":
-		t.storage.AddCounter(mName, int64(*mDelta))
-	default:
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	response, err := json.Marshal(currentMetric)
+	response, err := json.Marshal(savedMetric)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -134,7 +97,7 @@ func (t transportLayer) GetMetricOld(w http.ResponseWriter, r *http.Request) {
 
 	switch mType {
 	case "gauge":
-		metric, isFound = t.storage.GetGauge(mName)
+		metric, isFound = t.reader.GetGauge(mName)
 	case "counter":
 		metric, isFound = t.storage.GetCounter(mName)
 	default:
@@ -158,7 +121,7 @@ func (t transportLayer) GetMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var currentMetric Metric
+	var currentMetric models.Metric
 	var buf bytes.Buffer
 
 	_, err := buf.ReadFrom(r.Body)
@@ -211,7 +174,7 @@ func (t transportLayer) GetMetric(w http.ResponseWriter, r *http.Request) {
 type PageData struct {
 	Title   string
 	Header  string
-	Metrics map[string]storage.Metric
+	Metrics map[string]models.Metric
 }
 
 func (t transportLayer) GetMetrics(w http.ResponseWriter, r *http.Request) {
@@ -280,7 +243,7 @@ func (t transportLayer) SendMetric(host, metricName, metricType, metricValue str
 
 	client := resty.New()
 
-	currentMetric := Metric{
+	currentMetric := models.Metric{
 		ID:    metricName,
 		MType: metricType,
 	}
@@ -327,8 +290,16 @@ func (t transportLayer) SendMetric(host, metricName, metricType, metricValue str
 	}
 }
 
-func NewTransport() *transportLayer {
+func NewTransport(saver Saver, logger *zap.SugaredLogger) *transportLayer {
+	r := chi.NewRouter()
+	r.Use()
+	r.Get("/", middleware.WithLogging(http.HandlerFunc(transportLayer.GetMetrics), sugar))
+	r.Get("/value/{metricType}/{metricName}", middleware.WithLogging(http.HandlerFunc(transportLayer.GetMetricOld), sugar))
+	r.Post("/value/", middleware.WithLogging(http.HandlerFunc(transportLayer.GetMetric), sugar))
+	r.Post("/update/{metricType}/{metricName}/{metricValue}", middleware.WithLogging(http.HandlerFunc(transportLayer.UpdateMetricOld), sugar))
+	r.Post("/update/", middleware.WithLogging(http.HandlerFunc(transportLayer.UpdateMetric), sugar))
+
 	return &transportLayer{
-		storage: storage.NewStorage(),
+		saver: saver,
 	}
 }
