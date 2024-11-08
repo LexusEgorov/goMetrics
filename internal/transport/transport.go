@@ -107,10 +107,10 @@ func (t transportServer) GetMetricOld(w http.ResponseWriter, r *http.Request) {
 
 	switch currentMetric.MType {
 	case "gauge":
-		w.Write([]byte(fmt.Sprint(foundMetric.Value)))
+		w.Write([]byte(fmt.Sprint(*foundMetric.Value)))
 		return
 	case "counter":
-		w.Write([]byte(fmt.Sprint(foundMetric.Delta)))
+		w.Write([]byte(fmt.Sprint(*foundMetric.Delta)))
 		return
 	default:
 		w.WriteHeader(http.StatusNotFound)
