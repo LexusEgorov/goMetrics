@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/LexusEgorov/goMetrics/internal/dohSimpson"
+	"github.com/LexusEgorov/goMetrics/internal/dohsimpson"
 	"github.com/LexusEgorov/goMetrics/internal/models"
 	"github.com/LexusEgorov/goMetrics/internal/transport"
 )
@@ -18,9 +18,9 @@ type saver struct {
 	storage Storager
 }
 
-func (s saver) SaveOld(mName, mType, mValue string) *dohSimpson.Error {
+func (s saver) SaveOld(mName, mType, mValue string) *dohsimpson.Error {
 	if mName == "" || mValue == "" {
-		return dohSimpson.NewDoh(http.StatusNotFound, "metric not found")
+		return dohsimpson.NewDoh(http.StatusNotFound, "metric not found")
 	}
 
 	switch mType {
@@ -28,7 +28,7 @@ func (s saver) SaveOld(mName, mType, mValue string) *dohSimpson.Error {
 		value, err := strconv.ParseFloat(mValue, 64)
 
 		if err != nil {
-			return dohSimpson.NewDoh(http.StatusBadRequest, err.Error())
+			return dohsimpson.NewDoh(http.StatusBadRequest, err.Error())
 		}
 
 		s.storage.AddGauge(mName, float64(value))
@@ -36,29 +36,29 @@ func (s saver) SaveOld(mName, mType, mValue string) *dohSimpson.Error {
 		value, err := strconv.ParseInt(mValue, 0, 64)
 
 		if err != nil {
-			return dohSimpson.NewDoh(http.StatusBadRequest, err.Error())
+			return dohsimpson.NewDoh(http.StatusBadRequest, err.Error())
 		}
 
 		s.storage.AddCounter(mName, int64(value))
 	default:
-		return dohSimpson.NewDoh(http.StatusBadRequest, "unknown metric Type")
+		return dohsimpson.NewDoh(http.StatusBadRequest, "unknown metric Type")
 	}
 
 	return nil
 }
 
-func (s saver) Save(m models.Metric) (*models.Metric, *dohSimpson.Error) {
+func (s saver) Save(m models.Metric) (*models.Metric, *dohsimpson.Error) {
 	mName := m.ID
 	mType := m.MType
 	mValue := m.Value
 	mDelta := m.Delta
 
 	if mName == "" {
-		return nil, dohSimpson.NewDoh(http.StatusNotFound, "empty metric ID")
+		return nil, dohsimpson.NewDoh(http.StatusNotFound, "empty metric ID")
 	}
 
 	if mValue == nil && mDelta == nil {
-		return nil, dohSimpson.NewDoh(http.StatusBadRequest, "empty metric value or delta")
+		return nil, dohsimpson.NewDoh(http.StatusBadRequest, "empty metric value or delta")
 	}
 
 	switch mType {
@@ -67,7 +67,7 @@ func (s saver) Save(m models.Metric) (*models.Metric, *dohSimpson.Error) {
 	case "counter":
 		s.storage.AddCounter(mName, int64(*mDelta))
 	default:
-		return nil, dohSimpson.NewDoh(http.StatusBadRequest, "unknown metric Type")
+		return nil, dohsimpson.NewDoh(http.StatusBadRequest, "unknown metric Type")
 	}
 
 	return &m, nil

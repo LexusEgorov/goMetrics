@@ -3,7 +3,7 @@ package reader
 import (
 	"net/http"
 
-	"github.com/LexusEgorov/goMetrics/internal/dohSimpson"
+	"github.com/LexusEgorov/goMetrics/internal/dohsimpson"
 	"github.com/LexusEgorov/goMetrics/internal/models"
 	"github.com/LexusEgorov/goMetrics/internal/transport"
 )
@@ -18,7 +18,7 @@ type reader struct {
 	storage Storager
 }
 
-func (r reader) Read(key, mType string) (*models.Metric, *dohSimpson.Error) {
+func (r reader) Read(key, mType string) (*models.Metric, *dohsimpson.Error) {
 	currentMetric := models.Metric{
 		ID:    key,
 		MType: mType,
@@ -38,11 +38,11 @@ func (r reader) Read(key, mType string) (*models.Metric, *dohSimpson.Error) {
 		currentMetric.Delta = &counterValue
 		isFound = found
 	default:
-		return nil, dohSimpson.NewDoh(http.StatusNotFound, "metric not found")
+		return nil, dohsimpson.NewDoh(http.StatusNotFound, "metric not found")
 	}
 
 	if !isFound {
-		return nil, dohSimpson.NewDoh(http.StatusNotFound, "metric not found")
+		return nil, dohsimpson.NewDoh(http.StatusNotFound, "metric not found")
 	}
 
 	return &currentMetric, nil

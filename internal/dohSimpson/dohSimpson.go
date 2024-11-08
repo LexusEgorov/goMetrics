@@ -1,4 +1,4 @@
-package dohSimpson
+package dohsimpson
 
 import "fmt"
 

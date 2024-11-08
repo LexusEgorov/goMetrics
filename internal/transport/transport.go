@@ -12,18 +12,18 @@ import (
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
 
-	"github.com/LexusEgorov/goMetrics/internal/dohSimpson"
+	dohsimpson "github.com/LexusEgorov/goMetrics/internal/dohsimpson"
 	"github.com/LexusEgorov/goMetrics/internal/middleware"
 	"github.com/LexusEgorov/goMetrics/internal/models"
 )
 
 type Saver interface {
-	SaveOld(mName, mType, value string) *dohSimpson.Error
-	Save(m models.Metric) (*models.Metric, *dohSimpson.Error)
+	SaveOld(mName, mType, value string) *dohsimpson.Error
+	Save(m models.Metric) (*models.Metric, *dohsimpson.Error)
 }
 
 type Reader interface {
-	Read(key, mType string) (*models.Metric, *dohSimpson.Error)
+	Read(key, mType string) (*models.Metric, *dohsimpson.Error)
 	ReadAll() map[string]models.Metric
 }
 
