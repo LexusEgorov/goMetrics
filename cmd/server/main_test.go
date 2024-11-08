@@ -5,18 +5,34 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/LexusEgorov/goMetrics/internal/services/reader"
+	"github.com/LexusEgorov/goMetrics/internal/services/saver"
+	"github.com/LexusEgorov/goMetrics/internal/services/storage"
 	"github.com/LexusEgorov/goMetrics/internal/transport"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
 
 func setupRouter() *chi.Mux {
-	transportLayer := transport.NewTransport()
-	r := chi.NewRouter()
-	r.Get("/", transportLayer.GetMetrics)
-	r.Get("/value/{metricType}/{metricName}", transportLayer.GetMetric)
-	r.Post("/update/{metricType}/{metricName}/{metricValue}", transportLayer.UpdateMetric)
+	logger, err := zap.NewDevelopment()
 
-	return r
+	if err != nil {
+		panic(err)
+	}
+
+	defer logger.Sync()
+
+	saverRepo, readerRepo := storage.NewStorage()
+
+	saver := saver.NewSaver(saverRepo)
+	reader := reader.NewReader(readerRepo)
+
+	sugar := logger.Sugar()
+	router := chi.NewRouter()
+
+	transportServer := transport.NewServer(saver, reader, router, sugar)
+
+	return transportServer.Router
 }
 
 func Test_main(t *testing.T) {
