@@ -115,8 +115,6 @@ func (t transportServer) GetMetricOld(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.WriteHeader(http.StatusNotFound)
 	}
-
-	return
 }
 
 func (t transportServer) GetMetric(w http.ResponseWriter, r *http.Request) {
