@@ -10,19 +10,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
-	"github.com/LexusEgorov/goMetrics/internal/middleware"
+	"github.com/LexusEgorov/goMetrics/internal/config"
 	"github.com/LexusEgorov/goMetrics/internal/services/collectmetric"
+	"github.com/LexusEgorov/goMetrics/internal/services/reader"
+	"github.com/LexusEgorov/goMetrics/internal/services/saver"
+	"github.com/LexusEgorov/goMetrics/internal/services/storage"
 	"github.com/LexusEgorov/goMetrics/internal/transport"
 )
-
-// remove
-// type Transporter interface {
-// 	UpdateMetric(w http.ResponseWriter, r *http.Request)
-// 	UpdateMetricOld(w http.ResponseWriter, r *http.Request)
-// 	GetMetric(w http.ResponseWriter, r *http.Request)
-// 	GetMetricOld(w http.ResponseWriter, r *http.Request)
-// 	GetMetrics(w http.ResponseWriter, r *http.Request)
-// }
 
 type serverRunner struct{}
 
@@ -35,22 +29,18 @@ func (s serverRunner) Run(host string) error {
 
 	defer logger.Sync()
 
+	saverRepo, readerRepo := storage.NewStorage()
+
+	saver := saver.NewSaver(saverRepo)
+	reader := reader.NewReader(readerRepo)
+
 	sugar := logger.Sugar()
+	router := chi.NewRouter()
 
-	transportLayer := transport.NewTransport()
-
-	// move to transport
-	r := chi.NewRouter()
-	r.Use()
-	r.Get("/", middleware.WithLogging(http.HandlerFunc(transportLayer.GetMetrics), sugar))
-	r.Get("/value/{metricType}/{metricName}", middleware.WithLogging(http.HandlerFunc(transportLayer.GetMetricOld), sugar))
-	r.Post("/value/", middleware.WithLogging(http.HandlerFunc(transportLayer.GetMetric), sugar))
-	r.Post("/update/{metricType}/{metricName}/{metricValue}", middleware.WithLogging(http.HandlerFunc(transportLayer.UpdateMetricOld), sugar))
-	r.Post("/update/", middleware.WithLogging(http.HandlerFunc(transportLayer.UpdateMetric), sugar))
-	//
+	transportServer := transport.NewServer(saver, reader, router, sugar)
 
 	fmt.Println("Running server on", host)
-	return http.ListenAndServe(host, r)
+	return http.ListenAndServe(host, transportServer.Router)
 }
 
 func NewServer() *serverRunner {
@@ -59,8 +49,12 @@ func NewServer() *serverRunner {
 
 type agentRunner struct{}
 
-func (a agentRunner) Run(host string, reportInterval, pollInterval int) {
-	var agent = collectmetric.NewAgent(host, reportInterval, pollInterval)
+func (a agentRunner) Run(config config.Agent) {
+	saverRepo, readerRepo := storage.NewStorage()
+
+	saver := saver.NewSaver(saverRepo)
+	reader := reader.NewReader(readerRepo)
+	var agent = collectmetric.NewAgent(config, saver, reader)
 
 	stopChan := make(chan struct{})
 	signalChan := make(chan os.Signal, 1)

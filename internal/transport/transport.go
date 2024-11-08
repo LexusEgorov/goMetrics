@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"text/template"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
 
@@ -27,12 +27,13 @@ type Reader interface {
 	ReadAll() map[string]models.Metric
 }
 
-type transportLayer struct {
+type transportServer struct {
+	Router *chi.Mux
 	reader Reader
 	saver  Saver
 }
 
-func (t transportLayer) UpdateMetricOld(w http.ResponseWriter, r *http.Request) {
+func (t transportServer) UpdateMetricOld(w http.ResponseWriter, r *http.Request) {
 	mName := r.PathValue("metricName")
 	mType := r.PathValue("metricType")
 	mValue := r.PathValue("metricValue")
@@ -47,7 +48,7 @@ func (t transportLayer) UpdateMetricOld(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK)
 }
 
-func (t transportLayer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
+func (t transportServer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-Type")
 
 	if contentType != "application/json" {
@@ -88,39 +89,37 @@ func (t transportLayer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (t transportLayer) GetMetricOld(w http.ResponseWriter, r *http.Request) {
+func (t transportServer) GetMetricOld(w http.ResponseWriter, r *http.Request) {
 	mName := r.PathValue("metricName")
 	mType := r.PathValue("metricType")
 
-	var metric interface{}
-	var isFound bool
+	currentMetric := models.Metric{
+		ID:    mName,
+		MType: mType,
+	}
 
-	switch mType {
+	foundMetric, readError := t.reader.Read(currentMetric.ID, currentMetric.MType)
+
+	if readError != nil {
+		w.WriteHeader(readError.Code)
+		return
+	}
+
+	switch currentMetric.MType {
 	case "gauge":
-		metric, isFound = t.reader.GetGauge(mName)
+		w.Write([]byte(fmt.Sprint(foundMetric.Value)))
+		return
 	case "counter":
-		metric, isFound = t.storage.GetCounter(mName)
+		w.Write([]byte(fmt.Sprint(foundMetric.Delta)))
+		return
 	default:
 		w.WriteHeader(http.StatusNotFound)
-		return
 	}
 
-	if !isFound {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	w.Write([]byte(fmt.Sprint(metric)))
+	return
 }
 
-func (t transportLayer) GetMetric(w http.ResponseWriter, r *http.Request) {
-	contentType := r.Header.Get("Content-Type")
-
-	if contentType != "application/json" {
-		t.GetMetricOld(w, r)
-		return
-	}
-
+func (t transportServer) GetMetric(w http.ResponseWriter, r *http.Request) {
 	var currentMetric models.Metric
 	var buf bytes.Buffer
 
@@ -135,31 +134,14 @@ func (t transportLayer) GetMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	switch currentMetric.MType {
-	case "gauge":
-		metric, isFound := t.storage.GetGauge(currentMetric.ID)
+	foundMetric, readError := t.reader.Read(currentMetric.ID, currentMetric.MType)
 
-		if isFound {
-			value := float64(metric)
-			currentMetric.Value = &value
-		}
-	case "counter":
-		metric, isFound := t.storage.GetCounter(currentMetric.ID)
-		if isFound {
-			value := int64(metric)
-			currentMetric.Delta = &value
-		}
-	default:
-		w.WriteHeader(http.StatusNotFound)
+	if readError != nil {
+		w.WriteHeader(readError.Code)
 		return
 	}
 
-	if currentMetric.Delta == nil && currentMetric.Value == nil {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	response, err := json.Marshal(currentMetric)
+	response, err := json.Marshal(foundMetric)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -177,7 +159,7 @@ type PageData struct {
 	Metrics map[string]models.Metric
 }
 
-func (t transportLayer) GetMetrics(w http.ResponseWriter, r *http.Request) {
+func (t transportServer) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-Type")
 
 	if contentType != "application/json" {
@@ -185,7 +167,7 @@ func (t transportLayer) GetMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metrics := t.storage.GetAll()
+	metrics := t.reader.ReadAll()
 	response, err := json.Marshal(metrics)
 
 	if err != nil {
@@ -198,11 +180,11 @@ func (t transportLayer) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (t transportLayer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
+func (t transportServer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
 	pageData := PageData{
 		Title:   "Metrics",
 		Header:  "Metrics list: ",
-		Metrics: t.storage.GetAll(),
+		Metrics: t.reader.ReadAll(),
 	}
 
 	page, err := template.New("webpage").
@@ -237,7 +219,25 @@ func (t transportLayer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (t transportLayer) SendMetric(host, metricName, metricType, metricValue string) {
+func NewServer(saver Saver, reader Reader, router *chi.Mux, logger *zap.SugaredLogger) *transportServer {
+	transportServer := transportServer{
+		Router: router,
+		reader: reader,
+		saver:  saver,
+	}
+
+	router.Get("/", middleware.WithLogging(http.HandlerFunc(transportServer.GetMetrics), logger))
+	router.Get("/value/{metricType}/{metricName}", middleware.WithLogging(http.HandlerFunc(transportServer.GetMetricOld), logger))
+	router.Post("/value/", middleware.WithLogging(http.HandlerFunc(transportServer.GetMetric), logger))
+	router.Post("/update/{metricType}/{metricName}/{metricValue}", middleware.WithLogging(http.HandlerFunc(transportServer.UpdateMetricOld), logger))
+	router.Post("/update/", middleware.WithLogging(http.HandlerFunc(transportServer.UpdateMetric), logger))
+
+	return &transportServer
+}
+
+type transportClient struct{}
+
+func (t transportClient) SendMetric(host, metricName, metricType, metricValue string) {
 	url := fmt.Sprintf("http://%s/update/%s/%s/%s", host, metricType, metricName, metricValue)
 	//url := fmt.Sprintf("http://%s/update", host)
 
@@ -290,16 +290,6 @@ func (t transportLayer) SendMetric(host, metricName, metricType, metricValue str
 	}
 }
 
-func NewTransport(saver Saver, logger *zap.SugaredLogger) *transportLayer {
-	r := chi.NewRouter()
-	r.Use()
-	r.Get("/", middleware.WithLogging(http.HandlerFunc(transportLayer.GetMetrics), sugar))
-	r.Get("/value/{metricType}/{metricName}", middleware.WithLogging(http.HandlerFunc(transportLayer.GetMetricOld), sugar))
-	r.Post("/value/", middleware.WithLogging(http.HandlerFunc(transportLayer.GetMetric), sugar))
-	r.Post("/update/{metricType}/{metricName}/{metricValue}", middleware.WithLogging(http.HandlerFunc(transportLayer.UpdateMetricOld), sugar))
-	r.Post("/update/", middleware.WithLogging(http.HandlerFunc(transportLayer.UpdateMetric), sugar))
-
-	return &transportLayer{
-		saver: saver,
-	}
+func NewClient() *transportClient {
+	return &transportClient{}
 }

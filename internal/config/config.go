@@ -27,7 +27,7 @@ func NewServer() server {
 	}
 }
 
-type agent struct {
+type Agent struct {
 	Host           string
 	ReportInterval int
 	PollInterval   int
@@ -43,7 +43,7 @@ func parseEnv(variable string) int {
 	return int(parsed)
 }
 
-func NewAgent() agent {
+func NewAgent() Agent {
 	var host string
 	var reportInterval int
 	var pollInterval int
@@ -69,7 +69,7 @@ func NewAgent() agent {
 		pollInterval = parseEnv(envPollInterval)
 	}
 
-	return agent{
+	return Agent{
 		Host:           host,
 		ReportInterval: reportInterval,
 		PollInterval:   pollInterval,

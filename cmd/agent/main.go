@@ -15,5 +15,5 @@ func main() {
 	agent := runners.NewAgent()
 	agentVars := config.NewAgent()
 
-	agent.Run(agentVars.Host, agentVars.ReportInterval, agentVars.PollInterval)
+	agent.Run(agentVars)
 }

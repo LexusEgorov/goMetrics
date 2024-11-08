@@ -7,7 +7,8 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/LexusEgorov/goMetrics/internal/services/storage"
+	"github.com/LexusEgorov/goMetrics/internal/config"
+	"github.com/LexusEgorov/goMetrics/internal/models"
 	"github.com/LexusEgorov/goMetrics/internal/transport"
 )
 
@@ -41,28 +42,11 @@ var gaugeMetrics = [...]string{
 	"TotalAlloc",
 }
 
-type Transporter interface {
-	SendMetric(host, metricName, metricType, metricValue string)
-}
-
-type agentIntervals struct {
-	collect int
-	send    int
-}
-
-type Storager interface {
-	AddGauge(key string, value float64)
-	AddCounter(key string, value int64)
-	GetGauge(key string) (float64, bool)
-	GetCounter(key string) (int64, bool)
-	GetAll() map[string]storage.Metric
-}
-
 type metricAgent struct {
-	storage   Storager
+	config    config.Agent
+	saver     transport.Saver
+	reader    transport.Reader
 	pollCount int64
-	host      string
-	intervals agentIntervals
 }
 
 func (agent *metricAgent) collectMetrics() {
@@ -72,51 +56,72 @@ func (agent *metricAgent) collectMetrics() {
 		runtime.ReadMemStats(&memStats)
 
 		for _, metricName := range gaugeMetrics {
-			value := reflect.ValueOf(memStats).FieldByName(metricName)
 			agent.pollCount++
+			currentMetric := models.Metric{
+				ID:    metricName,
+				MType: "gauge",
+			}
+
+			value := reflect.ValueOf(memStats).FieldByName(metricName)
 
 			if value.IsValid() && value.CanInterface() {
+				var floatedValue float64
+
 				switch v := value.Interface().(type) {
 				case float64:
-					agent.storage.AddGauge(metricName, v)
+					floatedValue = v
 				case uint64:
-					agent.storage.AddGauge(metricName, float64(v))
+					floatedValue = float64(v)
 				case uint32:
-					agent.storage.AddGauge(metricName, float64(v))
+					floatedValue = float64(v)
 				case uint16:
-					agent.storage.AddGauge(metricName, float64(v))
+					floatedValue = float64(v)
 				case uint8:
-					agent.storage.AddGauge(metricName, float64(v))
+					floatedValue = float64(v)
 				default:
 					fmt.Printf("Unable to convert metric %s (%s) to a float64\n", metricName, v)
+					continue
 				}
+
+				currentMetric.Value = &floatedValue
 			} else {
 				fmt.Printf("Metric %s is not valid or accessible\n", metricName)
 				continue
 			}
+
+			agent.saver.Save(currentMetric)
 		}
 
-		agent.storage.AddCounter("PollCount", agent.pollCount)
+		agent.saver.Save(models.Metric{
+			ID:    "PollCount",
+			MType: "counter",
+			Delta: &agent.pollCount,
+		})
+
 		randomValue := rand.Float64()
-		agent.storage.AddGauge("RandomValue", randomValue)
+		agent.saver.Save(models.Metric{
+			ID:    "RandomValue",
+			MType: "gauge",
+			Value: &randomValue,
+		})
 
 		fmt.Println("Collect finished")
-		time.Sleep(time.Duration(agent.intervals.collect) * time.Second)
+		time.Sleep(time.Duration(agent.config.PollInterval) * time.Second)
 	}
 }
 
 func (agent metricAgent) sendMetrics() {
-	var transportLayer Transporter = transport.NewTransport()
+	transportClient := transport.NewClient()
 
 	for {
-		time.Sleep(time.Duration(agent.intervals.send) * time.Second)
+		time.Sleep(time.Duration(agent.config.ReportInterval) * time.Second)
 		fmt.Println("Sending started")
-		for k, metric := range agent.storage.GetAll() {
+		for k, metric := range agent.reader.ReadAll() {
 			switch metric.MType {
 			case "gauge":
-				transportLayer.SendMetric(agent.host, string(k), metric.MType, fmt.Sprint(*metric.Value))
+				transportClient.SendMetric(agent.config.Host, string(k), metric.MType, fmt.Sprint(*metric.Value))
 			case "counter":
-				transportLayer.SendMetric(agent.host, string(k), metric.MType, fmt.Sprint(*metric.Delta))
+				transportClient.SendMetric(agent.config.Host, string(k), metric.MType, fmt.Sprint(*metric.Delta))
 			default:
 				fmt.Printf("Unknown metric's type: %T\n", metric.MType)
 			}
@@ -128,9 +133,9 @@ func (agent metricAgent) sendMetrics() {
 
 func (agent metricAgent) Start(stopChan chan struct{}) {
 	fmt.Println("Agent started")
-	fmt.Printf("Host: %s\n", agent.host)
-	fmt.Printf("ReportInterval: %d\n", agent.intervals.send)
-	fmt.Printf("PollInterval: %d\n", agent.intervals.collect)
+	fmt.Printf("Host: %s\n", agent.config.Host)
+	fmt.Printf("ReportInterval: %d\n", agent.config.ReportInterval)
+	fmt.Printf("PollInterval: %d\n", agent.config.PollInterval)
 
 	go agent.collectMetrics()
 	go agent.sendMetrics()
@@ -139,14 +144,11 @@ func (agent metricAgent) Start(stopChan chan struct{}) {
 	fmt.Println("Agent finished")
 }
 
-func NewAgent(host string, reportInterval, pollInterval int) *metricAgent {
+func NewAgent(init config.Agent, saver transport.Saver, reader transport.Reader) *metricAgent {
 	return &metricAgent{
-		storage:   storage.NewStorage(),
+		config:    init,
+		saver:     saver,
+		reader:    reader,
 		pollCount: 0,
-		host:      host,
-		intervals: agentIntervals{
-			collect: pollInterval,
-			send:    reportInterval,
-		},
 	}
 }
