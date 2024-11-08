@@ -4,34 +4,51 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/LexusEgorov/goMetrics/internal/encoding"
 	"go.uber.org/zap"
 )
 
-func WithLogging(h http.Handler, s *zap.SugaredLogger) http.HandlerFunc {
-	logFn := func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		uri := r.RequestURI
-		method := r.Method
+// func WithLogging(h http.Handler, s *zap.SugaredLogger) http.HandlerFunc {
+// 	logFn := func(w http.ResponseWriter, r *http.Request) {
+// 		start := time.Now()
+// 		uri := r.RequestURI
+// 		method := r.Method
 
-		h.ServeHTTP(w, r)
+// 		h.ServeHTTP(w, r)
 
-		timeDiff := time.Since(start)
+// 		timeDiff := time.Since(start)
 
-		s.Infoln(
-			"uri", uri,
-			"method", method,
-			"duration", timeDiff,
-		)
+// 		s.Infoln(
+// 			"uri", uri,
+// 			"method", method,
+// 			"duration", timeDiff,
+// 		)
+// 	}
+
+// 	return http.HandlerFunc(logFn)
+// }
+
+func WithLogging(s *zap.SugaredLogger) func(http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
+			uri := r.RequestURI
+			method := r.Method
+
+			h.ServeHTTP(w, r)
+
+			timeDiff := time.Since(start)
+
+			s.Infoln(
+				"uri", uri,
+				"method", method,
+				"duration", timeDiff,
+			)
+		})
 	}
-
-	return http.HandlerFunc(logFn)
 }
 
-func WithDecoding(h http.Handler) http.HandlerFunc {
-	encoding := encoding.NewEncoding()
-
-	decodeFn := func(w http.ResponseWriter, r *http.Request) {
+func WithDecoding(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		encodingHeader := r.Header.Get("Content-Encoding")
 
 		switch encodingHeader {
@@ -45,14 +62,13 @@ func WithDecoding(h http.Handler) http.HandlerFunc {
 
 		default:
 		}
-		h.ServeHTTP(w, r)
-	}
 
-	return http.HandlerFunc(decodeFn)
+		next.ServeHTTP(w, r)
+	})
 }
 
-func WithEncoding(h http.Handler) http.HandlerFunc {
-	encodeFn := func(w http.ResponseWriter, r *http.Request) {
+func WithEncoding(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		encodingHeader := r.Header.Get("Accept-Encoding")
 
 		switch encodingHeader {
@@ -66,8 +82,7 @@ func WithEncoding(h http.Handler) http.HandlerFunc {
 
 		default:
 		}
-		h.ServeHTTP(w, r)
-	}
 
-	return http.HandlerFunc(encodeFn)
+		next.ServeHTTP(w, r)
+	})
 }

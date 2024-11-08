@@ -226,11 +226,15 @@ func NewServer(saver Saver, reader Reader, router *chi.Mux, logger *zap.SugaredL
 		saver:  saver,
 	}
 
-	router.Get("/", middleware.WithLogging(http.HandlerFunc(transportServer.GetMetrics), logger))
-	router.Get("/value/{metricType}/{metricName}", middleware.WithLogging(http.HandlerFunc(transportServer.GetMetricOld), logger))
-	router.Post("/value/", middleware.WithLogging(http.HandlerFunc(transportServer.GetMetric), logger))
-	router.Post("/update/{metricType}/{metricName}/{metricValue}", middleware.WithLogging(http.HandlerFunc(transportServer.UpdateMetricOld), logger))
-	router.Post("/update/", middleware.WithLogging(http.HandlerFunc(transportServer.UpdateMetric), logger))
+	router.Use(middleware.WithLogging(logger))
+	// router.Use(middleware.WithDecoding)
+	// router.Use(middleware.WithEncoding)
+
+	router.Get("/", http.HandlerFunc(transportServer.GetMetrics))
+	router.Get("/value/{metricType}/{metricName}", http.HandlerFunc(transportServer.GetMetricOld))
+	router.Post("/value/", http.HandlerFunc(transportServer.GetMetric))
+	router.Post("/update/{metricType}/{metricName}/{metricValue}", http.HandlerFunc(transportServer.UpdateMetricOld))
+	router.Post("/update/", http.HandlerFunc(transportServer.UpdateMetric))
 
 	return &transportServer
 }
