@@ -12,7 +12,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
 
-	dohsimpson "github.com/LexusEgorov/goMetrics/internal/dohsimpson"
+	"github.com/LexusEgorov/goMetrics/internal/dohsimpson"
 	"github.com/LexusEgorov/goMetrics/internal/middleware"
 	"github.com/LexusEgorov/goMetrics/internal/models"
 )
