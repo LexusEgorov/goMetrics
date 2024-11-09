@@ -9,6 +9,7 @@ require (
 )
 
 require (
+	github.com/andybalholm/brotli v1.1.1
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/net v0.31.0 // indirect
 )
