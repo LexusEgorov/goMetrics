@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -111,6 +112,7 @@ func WithEncoding(next http.Handler) http.Handler {
 			data, encodeErr = encoder.EncodeBr(rw.body.Bytes())
 			w.Header().Set("Content-Encoding", "br")
 		default:
+			fmt.Printf("HEADER: %s\n", encodingHeader)
 			next.ServeHTTP(w, r)
 			return
 		}
