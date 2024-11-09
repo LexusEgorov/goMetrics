@@ -103,10 +103,13 @@ func WithEncoding(next http.Handler) http.Handler {
 		switch encodingHeader {
 		case "gzip":
 			data, encodeErr = encoder.EncodeGz(rw.body.Bytes())
+			w.Header().Set("Content-Encoding", "gzip")
 		case "deflate":
 			data, encodeErr = encoder.EncodeDeflate(rw.body.Bytes())
+			w.Header().Set("Content-Encoding", "deflate")
 		case "br":
 			data, encodeErr = encoder.EncodeBr(rw.body.Bytes())
+			w.Header().Set("Content-Encoding", "br")
 		default:
 			next.ServeHTTP(w, r)
 			return
