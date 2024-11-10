@@ -14,9 +14,13 @@ import (
 	"github.com/LexusEgorov/goMetrics/internal/encoding"
 )
 
-type ResponseWriter struct {
+type responseWriter struct {
 	http.ResponseWriter
-	body *bytes.Buffer
+	Body *bytes.Buffer
+}
+
+func (rw responseWriter) Write(b []byte) (int, error) {
+	return rw.Body.Write(b)
 }
 
 func WithLogging(s *zap.SugaredLogger) func(http.Handler) http.Handler {
@@ -50,9 +54,7 @@ func WithDecoding(next http.Handler) http.Handler {
 
 		encodingHeader := r.Header.Get("Content-Encoding")
 
-		var buf bytes.Buffer
-
-		_, err := buf.ReadFrom(r.Body)
+		body, err := io.ReadAll(r.Body)
 
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -64,12 +66,13 @@ func WithDecoding(next http.Handler) http.Handler {
 
 		switch encodingHeader {
 		case "gzip":
-			data, decodeErr = decoder.DecodeGz(buf.Bytes())
+			data, decodeErr = decoder.DecodeGz(body)
 		case "deflate":
-			data, decodeErr = decoder.DecodeDeflate(buf.Bytes())
+			data, decodeErr = decoder.DecodeDeflate(body)
 		case "br":
-			data, decodeErr = decoder.DecodeBr(buf.Bytes())
+			data, decodeErr = decoder.DecodeBr(body)
 		default:
+			r.Body = io.NopCloser(bytes.NewBuffer(body))
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -88,12 +91,10 @@ func WithDecoding(next http.Handler) http.Handler {
 func WithEncoding(next http.Handler) http.Handler {
 	encoder := encoding.NewEncoding()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Body == nil {
-			next.ServeHTTP(w, r)
-			return
+		rw := &responseWriter{
+			ResponseWriter: w,
+			Body:           new(bytes.Buffer),
 		}
-
-		rw := &ResponseWriter{ResponseWriter: w}
 		encodingHeader := r.Header.Get("Accept-Encoding")
 
 		next.ServeHTTP(rw, r)
@@ -103,18 +104,16 @@ func WithEncoding(next http.Handler) http.Handler {
 
 		switch encodingHeader {
 		case "gzip":
-			data, encodeErr = encoder.EncodeGz(rw.body.Bytes())
+			data, encodeErr = encoder.EncodeGz(rw.Body.Bytes())
 			w.Header().Set("Content-Encoding", "gzip")
 		case "deflate":
-			data, encodeErr = encoder.EncodeDeflate(rw.body.Bytes())
+			data, encodeErr = encoder.EncodeDeflate(rw.Body.Bytes())
 			w.Header().Set("Content-Encoding", "deflate")
 		case "br":
-			data, encodeErr = encoder.EncodeBr(rw.body.Bytes())
+			data, encodeErr = encoder.EncodeBr(rw.Body.Bytes())
 			w.Header().Set("Content-Encoding", "br")
 		default:
-			fmt.Printf("HEADER: %s\n", encodingHeader)
-			next.ServeHTTP(w, r)
-			return
+			data = rw.Body.Bytes()
 		}
 
 		if encodeErr != nil {
@@ -122,8 +121,7 @@ func WithEncoding(next http.Handler) http.Handler {
 			return
 		}
 
+		w.Header().Set("Content-Length", fmt.Sprint(len(data)))
 		w.Write(data)
-
-		next.ServeHTTP(w, r)
 	})
 }

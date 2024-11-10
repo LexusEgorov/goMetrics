@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"text/template"
@@ -57,15 +58,14 @@ func (t transportServer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var currentMetric models.Metric
-	var buf bytes.Buffer
+	body, err := io.ReadAll(r.Body)
 
-	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	if err = json.Unmarshal(buf.Bytes(), &currentMetric); err != nil {
+	if err = json.Unmarshal(body, &currentMetric); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -77,7 +77,14 @@ func (t transportServer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := json.Marshal(savedMetric)
+	updatedMetric, readError := t.reader.Read(savedMetric.ID, savedMetric.MType)
+
+	if readError != nil {
+		w.WriteHeader(readError.Code)
+		return
+	}
+
+	response, err := json.Marshal(updatedMetric)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -85,8 +92,8 @@ func (t transportServer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(response)
 	w.WriteHeader(http.StatusOK)
+	w.Write(response)
 }
 
 func (t transportServer) GetMetricOld(w http.ResponseWriter, r *http.Request) {
@@ -175,7 +182,6 @@ func (t transportServer) GetMetrics(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(response)
-	w.WriteHeader(http.StatusOK)
 }
 
 func (t transportServer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
@@ -225,8 +231,8 @@ func NewServer(saver Saver, reader Reader, router *chi.Mux, logger *zap.SugaredL
 	}
 
 	router.Use(middleware.WithLogging(logger))
-	// router.Use(middleware.WithDecoding)
-	// router.Use(middleware.WithEncoding)
+	router.Use(middleware.WithDecoding)
+	router.Use(middleware.WithEncoding)
 
 	router.Get("/", http.HandlerFunc(transportServer.GetMetrics))
 	router.Get("/value/{metricType}/{metricName}", http.HandlerFunc(transportServer.GetMetricOld))

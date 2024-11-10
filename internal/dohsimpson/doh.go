@@ -12,8 +12,12 @@ func (e Error) Error() string {
 }
 
 func NewDoh(code int, message string) *Error {
-	return &Error{
+	doh := &Error{
 		Code:    code,
 		Message: message,
 	}
+
+	fmt.Println(doh.Error())
+
+	return doh
 }
