@@ -231,8 +231,8 @@ func NewServer(saver Saver, reader Reader, router *chi.Mux, logger *zap.SugaredL
 	}
 
 	router.Use(middleware.WithLogging(logger))
+	router.Use(middleware.WithEncoding)
 	// router.Use(middleware.WithDecoding)
-	// router.Use(middleware.WithEncoding)
 
 	router.Get("/", http.HandlerFunc(transportServer.GetMetrics))
 	router.Get("/value/{metricType}/{metricName}", http.HandlerFunc(transportServer.GetMetricOld))
