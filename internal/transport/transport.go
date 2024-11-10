@@ -217,6 +217,8 @@ func (t transportServer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	w.Header().Set("Content-Type", "text/html")
 }
 
 func NewServer(saver Saver, reader Reader, router *chi.Mux, logger *zap.SugaredLogger) *transportServer {
@@ -230,10 +232,10 @@ func NewServer(saver Saver, reader Reader, router *chi.Mux, logger *zap.SugaredL
 	router.Use(middleware.WithDecoding)
 	router.Use(middleware.WithEncoding)
 
-	router.Post("/update/", http.HandlerFunc(transportServer.UpdateMetric))
 	router.Get("/", http.HandlerFunc(transportServer.GetMetrics))
 	router.Post("/value/", http.HandlerFunc(transportServer.GetMetric))
 	router.Get("/value/{metricType}/{metricName}", http.HandlerFunc(transportServer.GetMetricOld))
+	router.Post("/update/", http.HandlerFunc(transportServer.UpdateMetric))
 	router.Post("/update/{metricType}/{metricName}/{metricValue}", http.HandlerFunc(transportServer.UpdateMetricOld))
 
 	return &transportServer
