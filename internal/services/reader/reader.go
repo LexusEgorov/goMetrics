@@ -1,6 +1,7 @@
 package reader
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/LexusEgorov/goMetrics/internal/dohsimpson"
@@ -38,11 +39,11 @@ func (r reader) Read(key, mType string) (*models.Metric, *dohsimpson.Error) {
 		currentMetric.Delta = &counterValue
 		isFound = found
 	default:
-		return nil, dohsimpson.NewDoh(http.StatusNotFound, "metric not found")
+		return nil, dohsimpson.NewDoh(http.StatusNotFound, fmt.Sprintf("wrong mType (%s)", mType))
 	}
 
 	if !isFound {
-		return nil, dohsimpson.NewDoh(http.StatusNotFound, "metric not found")
+		return nil, dohsimpson.NewDoh(http.StatusNotFound, fmt.Sprintf("metric not found: %s (%s)", key, mType))
 	}
 
 	return &currentMetric, nil
