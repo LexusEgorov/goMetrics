@@ -47,14 +47,15 @@ func WithDecoding(next http.Handler) http.Handler {
 	decoder := decoding.NewDecoding()
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			next.ServeHTTP(w, r)
-			return
-		}
 
 		encodingHeader := r.Header.Get("Content-Encoding")
 
 		body, err := io.ReadAll(r.Body)
+
+		if len(body) == 0 {
+			next.ServeHTTP(w, r)
+			return
+		}
 
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
