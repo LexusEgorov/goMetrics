@@ -45,8 +45,6 @@ func (t transportServer) UpdateMetricOld(w http.ResponseWriter, r *http.Request)
 		w.WriteHeader(saveError.Code)
 		return
 	}
-
-	w.WriteHeader(http.StatusOK)
 }
 
 func (t transportServer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
@@ -92,7 +90,6 @@ func (t transportServer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
 	w.Write(response)
 }
 
@@ -155,7 +152,6 @@ func (t transportServer) GetMetric(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(response)
-	w.WriteHeader(http.StatusOK)
 }
 
 type PageData struct {
@@ -234,11 +230,11 @@ func NewServer(saver Saver, reader Reader, router *chi.Mux, logger *zap.SugaredL
 	router.Use(middleware.WithDecoding)
 	router.Use(middleware.WithEncoding)
 
-	router.Get("/", http.HandlerFunc(transportServer.GetMetrics))
-	router.Get("/value/{metricType}/{metricName}", http.HandlerFunc(transportServer.GetMetricOld))
-	router.Post("/value/", http.HandlerFunc(transportServer.GetMetric))
-	router.Post("/update/{metricType}/{metricName}/{metricValue}", http.HandlerFunc(transportServer.UpdateMetricOld))
 	router.Post("/update/", http.HandlerFunc(transportServer.UpdateMetric))
+	router.Get("/", http.HandlerFunc(transportServer.GetMetrics))
+	router.Post("/value/", http.HandlerFunc(transportServer.GetMetric))
+	router.Get("/value/{metricType}/{metricName}", http.HandlerFunc(transportServer.GetMetricOld))
+	router.Post("/update/{metricType}/{metricName}/{metricValue}", http.HandlerFunc(transportServer.UpdateMetricOld))
 
 	return &transportServer
 }

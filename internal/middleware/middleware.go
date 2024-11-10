@@ -10,6 +10,7 @@ import (
 
 	"github.com/LexusEgorov/goMetrics/internal/decoding"
 	"github.com/LexusEgorov/goMetrics/internal/dohsimpson"
+	"github.com/LexusEgorov/goMetrics/internal/encoding"
 )
 
 type responseWriter struct {
@@ -88,7 +89,7 @@ func WithDecoding(next http.Handler) http.Handler {
 }
 
 func WithEncoding(next http.Handler) http.Handler {
-	// encoder := encoding.NewEncoding()
+	encoder := encoding.NewEncoding()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rw := &responseWriter{
 			ResponseWriter: w,
@@ -104,13 +105,13 @@ func WithEncoding(next http.Handler) http.Handler {
 
 		switch encodingHeader {
 		case "gzip":
-			// data, encodeErr = encoder.EncodeGz(rw.Body.Bytes())
+			data, encodeErr = encoder.EncodeGz(rw.Body.Bytes())
 			w.Header().Set("Content-Encoding", "gzip")
 		case "deflate":
-			// data, encodeErr = encoder.EncodeDeflate(rw.Body.Bytes())
+			data, encodeErr = encoder.EncodeDeflate(rw.Body.Bytes())
 			w.Header().Set("Content-Encoding", "deflate")
 		case "br":
-			// data, encodeErr = encoder.EncodeBr(rw.Body.Bytes())
+			data, encodeErr = encoder.EncodeBr(rw.Body.Bytes())
 			w.Header().Set("Content-Encoding", "br")
 		default:
 		}
@@ -120,7 +121,6 @@ func WithEncoding(next http.Handler) http.Handler {
 			return
 		}
 
-		// w.Header().Set("Content-Length", fmt.Sprint(len(data)))
 		w.Write(data)
 	})
 }
