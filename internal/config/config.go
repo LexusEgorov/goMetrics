@@ -7,23 +7,58 @@ import (
 )
 
 type server struct {
-	Host string
+	Host          string
+	StoreInterval int
+	StorePath     string
+	Restore       bool
 }
 
 func NewServer() server {
 	var host string
+	var storeInterval int
+	var storePath string
+	var restore bool
 
 	flag.StringVar(&host, "a", "localhost:8080", "address and port to run server")
+	flag.StringVar(&storePath, "i", "backup.txt", "store path")
+	flag.IntVar(&storeInterval, "f", 300, "save interval")
+	flag.BoolVar(&restore, "r", false, "is restore data?")
 	flag.Parse()
 
 	envHost := os.Getenv("ADDRESS")
+	envInterval := os.Getenv("STORE_INTERVAL")
+	envPath := os.Getenv("FILE_STORAGE_PATH")
+	envRestore := os.Getenv("RESTORE")
 
 	if envHost != "" {
 		host = envHost
 	}
 
+	if envInterval != "" {
+		parsedInterval, err := strconv.Atoi(envInterval)
+
+		if err == nil {
+			storeInterval = parsedInterval
+		}
+	}
+
+	if envPath != "" {
+		storePath = envPath
+	}
+
+	if envRestore != "" {
+		parsedRestore, err := strconv.ParseBool(envRestore)
+
+		if err == nil {
+			restore = parsedRestore
+		}
+	}
+
 	return server{
-		Host: host,
+		Host:          host,
+		StoreInterval: storeInterval,
+		StorePath:     storePath,
+		Restore:       restore,
 	}
 }
 
