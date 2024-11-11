@@ -56,9 +56,9 @@ func (m memStorage) GetAll() map[string]models.Metric {
 	return m.data
 }
 
-func NewStorage() (saver.Storager, reader.Storager) {
+func NewStorage(metrics map[string]models.Metric) (saver.Storager, reader.Storager) {
 	storage := &memStorage{
-		data: make(map[string]models.Metric),
+		data: metrics,
 	}
 
 	return storage, storage

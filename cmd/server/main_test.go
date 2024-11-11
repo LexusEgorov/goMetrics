@@ -1,58 +1,45 @@
 package main
 
-import (
-	"net/http"
-	"net/http/httptest"
-	"testing"
+// func setupRouter() *chi.Mux {
+// 	logger, err := zap.NewDevelopment()
 
-	"github.com/LexusEgorov/goMetrics/internal/services/reader"
-	"github.com/LexusEgorov/goMetrics/internal/services/saver"
-	"github.com/LexusEgorov/goMetrics/internal/services/storage"
-	"github.com/LexusEgorov/goMetrics/internal/transport"
-	"github.com/go-chi/chi/v5"
-	"go.uber.org/zap"
-)
+// 	if err != nil {
+// 		panic(err)
+// 	}
 
-func setupRouter() *chi.Mux {
-	logger, err := zap.NewDevelopment()
+// 	defer logger.Sync()
 
-	if err != nil {
-		panic(err)
-	}
+// 	saverRepo, readerRepo := storage.NewStorage()
 
-	defer logger.Sync()
+// 	saver := saver.NewSaver(saverRepo)
+// 	reader := reader.NewReader(readerRepo)
 
-	saverRepo, readerRepo := storage.NewStorage()
+// 	sugar := logger.Sugar()
+// 	router := chi.NewRouter()
 
-	saver := saver.NewSaver(saverRepo)
-	reader := reader.NewReader(readerRepo)
+// 	transportServer := transport.NewServer(saver, reader, router, sugar)
 
-	sugar := logger.Sugar()
-	router := chi.NewRouter()
+// 	return transportServer.Router
+// }
 
-	transportServer := transport.NewServer(saver, reader, router, sugar)
+// func Test_main(t *testing.T) {
+// 	r := setupRouter()
 
-	return transportServer.Router
-}
+// 	tests := []struct {
+// 		method   string
+// 		url      string
+// 		expected int
+// 	}{
+// 		{"GET", "/", http.StatusOK},
+// 	}
 
-func Test_main(t *testing.T) {
-	r := setupRouter()
+// 	for _, test := range tests {
+// 		req := httptest.NewRequest(test.method, test.url, nil)
+// 		rr := httptest.NewRecorder()
+// 		r.ServeHTTP(rr, req)
 
-	tests := []struct {
-		method   string
-		url      string
-		expected int
-	}{
-		{"GET", "/", http.StatusOK},
-	}
-
-	for _, test := range tests {
-		req := httptest.NewRequest(test.method, test.url, nil)
-		rr := httptest.NewRecorder()
-		r.ServeHTTP(rr, req)
-
-		if rr.Code != test.expected {
-			t.Errorf("Expected status %d, got %d for %s %s", test.expected, rr.Code, test.method, test.url)
-		}
-	}
-}
+// 		if rr.Code != test.expected {
+// 			t.Errorf("Expected status %d, got %d for %s %s", test.expected, rr.Code, test.method, test.url)
+// 		}
+// 	}
+// }

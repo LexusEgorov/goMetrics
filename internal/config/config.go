@@ -6,14 +6,14 @@ import (
 	"strconv"
 )
 
-type server struct {
+type Server struct {
 	Host          string
 	StoreInterval int
 	StorePath     string
 	Restore       bool
 }
 
-func NewServer() server {
+func NewServer() Server {
 	var host string
 	var storeInterval int
 	var storePath string
@@ -54,7 +54,7 @@ func NewServer() server {
 		}
 	}
 
-	return server{
+	return Server{
 		Host:          host,
 		StoreInterval: storeInterval,
 		StorePath:     storePath,

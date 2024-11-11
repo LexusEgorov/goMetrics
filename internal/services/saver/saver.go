@@ -13,10 +13,17 @@ import (
 type Storager interface {
 	AddGauge(key string, value float64)
 	AddCounter(key string, value int64)
+	GetAll() map[string]models.Metric
+}
+
+type FileWriter interface {
+	RunSave(storage Storager, interval int)
+	Save(metrics map[string]models.Metric)
 }
 
 type saver struct {
-	storage Storager
+	storage    Storager
+	fileWriter FileWriter
 }
 
 func (s saver) SaveOld(mName, mType, mValue string) *dohsimpson.Error {
@@ -45,6 +52,10 @@ func (s saver) SaveOld(mName, mType, mValue string) *dohsimpson.Error {
 		return dohsimpson.NewDoh(http.StatusBadRequest, fmt.Sprintf("unknown metric Type (%s) (saver)", mType))
 	}
 
+	if s.fileWriter != nil {
+		s.fileWriter.Save(s.storage.GetAll())
+	}
+
 	return nil
 }
 
@@ -71,11 +82,16 @@ func (s saver) Save(m models.Metric) (*models.Metric, *dohsimpson.Error) {
 		return nil, dohsimpson.NewDoh(http.StatusBadRequest, fmt.Sprintf("saver: unknown metric Type (%s)", mType))
 	}
 
+	if s.fileWriter != nil {
+		s.fileWriter.Save(s.storage.GetAll())
+	}
+
 	return &m, nil
 }
 
-func NewSaver(storage Storager) transport.Saver {
+func NewSaver(storage Storager, fileWriter FileWriter) transport.Saver {
 	return saver{
-		storage: storage,
+		storage:    storage,
+		fileWriter: fileWriter,
 	}
 }
