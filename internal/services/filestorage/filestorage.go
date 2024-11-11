@@ -31,6 +31,11 @@ func (f FileWriter) Save(metrics map[string]models.Metric) {
 		return
 	}
 
+	if _, err = f.file.Seek(0, 0); err != nil {
+		fmt.Println(err)
+		return
+	}
+
 	f.file.Write(jsonedMetrics)
 }
 
@@ -70,6 +75,10 @@ func (f fileReader) Read() map[string]models.Metric {
 
 	if err != nil {
 		fmt.Println(err)
+		return make(map[string]models.Metric)
+	}
+
+	if len(metrics) == 0 {
 		return make(map[string]models.Metric)
 	}
 
