@@ -1,7 +1,10 @@
 package filestorage
 
 import (
+	"bufio"
 	"encoding/json"
+	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -19,10 +22,12 @@ func (f FileWriter) Save(metrics map[string]models.Metric) {
 	jsonedMetrics, err := json.Marshal(metrics)
 
 	if err != nil {
+		fmt.Println(err)
 		return
 	}
 
 	if err = f.file.Truncate(0); err != nil {
+		fmt.Println(err)
 		return
 	}
 
@@ -36,6 +41,10 @@ func (f FileWriter) RunSave(storage saver.Storager, interval int) {
 	}
 }
 
+func (f FileWriter) Close() {
+	defer f.file.Close()
+}
+
 func NewFileWriter(filepath string) saver.FileWriter {
 	file, err := os.OpenFile(filepath, os.O_RDWR|os.O_CREATE, 0666)
 
@@ -43,7 +52,6 @@ func NewFileWriter(filepath string) saver.FileWriter {
 		dohsimpson.NewDoh(0, err.Error())
 		return nil
 	}
-	defer file.Close()
 
 	return &FileWriter{
 		path: filepath,
@@ -57,10 +65,11 @@ type fileReader struct {
 }
 
 func (f fileReader) Read() map[string]models.Metric {
-	var metrics []byte
-	_, err := f.file.Read(metrics)
+	reader := bufio.NewReader(f.file)
+	metrics, err := io.ReadAll(reader)
 
 	if err != nil {
+		fmt.Println(err)
 		return make(map[string]models.Metric)
 	}
 
@@ -69,10 +78,15 @@ func (f fileReader) Read() map[string]models.Metric {
 	err = json.Unmarshal(metrics, &parsedMetrics)
 
 	if err != nil {
+		fmt.Println(err)
 		return make(map[string]models.Metric)
 	}
 
 	return parsedMetrics
+}
+
+func (f fileReader) Close() {
+	defer f.file.Close()
 }
 
 func NewFileReader(filepath string) *fileReader {
@@ -81,7 +95,6 @@ func NewFileReader(filepath string) *fileReader {
 	if err != nil {
 		return nil
 	}
-	defer file.Close()
 
 	return &fileReader{
 		path: filepath,

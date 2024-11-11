@@ -34,6 +34,9 @@ func (s serverRunner) Run(config config.Server) error {
 	fileWriter := filestorage.NewFileWriter(config.StorePath)
 	fileReader := filestorage.NewFileReader(config.StorePath)
 
+	defer fileReader.Close()
+	defer fileWriter.Close()
+
 	initMetrics := make(map[string]models.Metric)
 
 	if config.Restore {
@@ -58,6 +61,9 @@ func (s serverRunner) Run(config config.Server) error {
 	transportServer := transport.NewServer(metricSaver, reader, router, sugar)
 
 	fmt.Println("Running server on", config.Host)
+	fmt.Println("Backup interval: ", config.StoreInterval)
+	fmt.Println("Backup file: ", config.StorePath)
+	fmt.Println("Backup readed: ", config.Restore)
 	return http.ListenAndServe(config.Host, transportServer.Router)
 }
 

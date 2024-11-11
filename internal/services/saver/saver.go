@@ -19,6 +19,7 @@ type Storager interface {
 type FileWriter interface {
 	RunSave(storage Storager, interval int)
 	Save(metrics map[string]models.Metric)
+	Close()
 }
 
 type saver struct {
