@@ -13,8 +13,6 @@ type DB struct {
 }
 
 func (d *DB) Connect(host string) {
-	// ps := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable", host, `postgres`, `root`, `metrics`)
-
 	var err error
 	d.db, err = sql.Open("pgx", host)
 
