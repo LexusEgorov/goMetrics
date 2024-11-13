@@ -221,6 +221,10 @@ func (t transportServer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 }
 
+func (t transportServer) CheckDb(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(200)
+}
+
 func NewServer(saver Saver, reader Reader, router *chi.Mux, logger *zap.SugaredLogger) *transportServer {
 	transportServer := transportServer{
 		Router: router,
@@ -229,6 +233,9 @@ func NewServer(saver Saver, reader Reader, router *chi.Mux, logger *zap.SugaredL
 	}
 
 	router.Use(middleware.WithLogging(logger))
+
+	router.Get("/ping", http.HandlerFunc(transportServer.CheckDb))
+
 	router.Use(middleware.WithDecoding)
 	router.Use(middleware.WithEncoding)
 
