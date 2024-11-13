@@ -69,6 +69,7 @@ func (s serverRunner) Run(config config.Server) error {
 	fmt.Println("Backup interval: ", config.StoreInterval)
 	fmt.Println("Backup file: ", config.StorePath)
 	fmt.Println("Backup readed: ", config.Restore)
+	fmt.Println("DB host: ", config.DB)
 	return http.ListenAndServe(config.Host, transportServer.Router)
 }
 
