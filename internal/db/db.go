@@ -3,7 +3,9 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"net/http"
 
+	"github.com/LexusEgorov/goMetrics/internal/dohsimpson"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -18,7 +20,7 @@ func (d *DB) Connect(host string) {
 	d.db, err = sql.Open("pgx", ps)
 
 	if err != nil {
-		panic(err)
+		dohsimpson.NewDoh(http.StatusInternalServerError, err.Error())
 	}
 
 	defer d.db.Close()
