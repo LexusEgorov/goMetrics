@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/LexusEgorov/goMetrics/internal/config"
+	"github.com/LexusEgorov/goMetrics/internal/db"
 	"github.com/LexusEgorov/goMetrics/internal/models"
 	"github.com/LexusEgorov/goMetrics/internal/services/collectmetric"
 	"github.com/LexusEgorov/goMetrics/internal/services/filestorage"
@@ -37,6 +38,10 @@ func (s serverRunner) Run(config config.Server) error {
 	defer fileReader.Close()
 	defer fileWriter.Close()
 
+	db := db.NewDB(config.DB)
+
+	defer db.Close()
+
 	initMetrics := make(map[string]models.Metric)
 
 	if config.Restore {
@@ -58,7 +63,7 @@ func (s serverRunner) Run(config config.Server) error {
 	sugar := logger.Sugar()
 	router := chi.NewRouter()
 
-	transportServer := transport.NewServer(metricSaver, reader, router, sugar)
+	transportServer := transport.NewServer(metricSaver, reader, router, sugar, db)
 
 	fmt.Println("Running server on", config.Host)
 	fmt.Println("Backup interval: ", config.StoreInterval)

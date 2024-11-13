@@ -13,6 +13,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
 
+	"github.com/LexusEgorov/goMetrics/internal/db"
 	"github.com/LexusEgorov/goMetrics/internal/dohsimpson"
 	"github.com/LexusEgorov/goMetrics/internal/middleware"
 	"github.com/LexusEgorov/goMetrics/internal/models"
@@ -32,6 +33,7 @@ type transportServer struct {
 	Router *chi.Mux
 	reader Reader
 	saver  Saver
+	db     db.DB
 }
 
 func (t transportServer) UpdateMetricOld(w http.ResponseWriter, r *http.Request) {
@@ -222,14 +224,20 @@ func (t transportServer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
 }
 
 func (t transportServer) CheckDb(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(200)
+	if t.db.Check() {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	w.WriteHeader(http.StatusInternalServerError)
 }
 
-func NewServer(saver Saver, reader Reader, router *chi.Mux, logger *zap.SugaredLogger) *transportServer {
+func NewServer(saver Saver, reader Reader, router *chi.Mux, logger *zap.SugaredLogger, db db.DB) *transportServer {
 	transportServer := transportServer{
 		Router: router,
 		reader: reader,
 		saver:  saver,
+		db:     db,
 	}
 
 	router.Use(middleware.WithLogging(logger))

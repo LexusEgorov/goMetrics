@@ -32,8 +32,8 @@ func (d DB) Check() bool {
 	return bool(d.db != nil)
 }
 
-func NewDB(host string) *DB {
-	db := &DB{}
+func NewDB(host string) DB {
+	db := DB{}
 
 	db.Connect(host)
 	return db
