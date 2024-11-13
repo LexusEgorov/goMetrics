@@ -2,7 +2,6 @@ package db
 
 import (
 	"database/sql"
-	"fmt"
 	"net/http"
 
 	"github.com/LexusEgorov/goMetrics/internal/dohsimpson"
@@ -14,13 +13,22 @@ type DB struct {
 }
 
 func (d *DB) Connect(host string) {
-	ps := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable", host, `postgres`, `root`, `metrics`)
+	// ps := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable", host, `postgres`, `root`, `metrics`)
 
 	var err error
-	d.db, err = sql.Open("pgx", ps)
+	d.db, err = sql.Open("pgx", host)
 
 	if err != nil {
 		dohsimpson.NewDoh(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	err = d.db.Ping()
+
+	if err != nil {
+		dohsimpson.NewDoh(http.StatusInternalServerError, err.Error())
+		d.db = nil
+		return
 	}
 
 	defer d.db.Close()
@@ -33,7 +41,13 @@ func (d DB) Close() {
 }
 
 func (d DB) Check() bool {
-	return bool(d.db != nil)
+	if d.db == nil {
+		return false
+	}
+
+	err := d.db.Ping()
+
+	return bool(err == nil)
 }
 
 func NewDB(host string) DB {
