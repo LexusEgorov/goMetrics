@@ -1,1 +1,1 @@
-{"Count":{"id":"Count","type":"counter","delta":10000}}
+{}

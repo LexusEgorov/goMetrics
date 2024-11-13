@@ -241,12 +241,10 @@ func NewServer(saver Saver, reader Reader, router *chi.Mux, logger *zap.SugaredL
 	}
 
 	router.Use(middleware.WithLogging(logger))
-
-	router.Get("/ping", http.HandlerFunc(transportServer.CheckDb))
-
 	router.Use(middleware.WithDecoding)
 	router.Use(middleware.WithEncoding)
 
+	router.Get("/ping", http.HandlerFunc(transportServer.CheckDb))
 	router.Get("/", http.HandlerFunc(transportServer.GetMetrics))
 	router.Post("/value/", http.HandlerFunc(transportServer.GetMetric))
 	router.Get("/value/{metricType}/{metricName}", http.HandlerFunc(transportServer.GetMetricOld))
