@@ -223,7 +223,7 @@ func (t transportServer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 }
 
-func (t transportServer) CheckDb(w http.ResponseWriter, r *http.Request) {
+func (t transportServer) CheckDB(w http.ResponseWriter, r *http.Request) {
 	if t.db.Check() {
 		w.WriteHeader(http.StatusOK)
 		return
@@ -244,7 +244,7 @@ func NewServer(saver Saver, reader Reader, router *chi.Mux, logger *zap.SugaredL
 	router.Use(middleware.WithDecoding)
 	router.Use(middleware.WithEncoding)
 
-	router.Get("/ping", http.HandlerFunc(transportServer.CheckDb))
+	router.Get("/ping", http.HandlerFunc(transportServer.CheckDB))
 	router.Get("/", http.HandlerFunc(transportServer.GetMetrics))
 	router.Post("/value/", http.HandlerFunc(transportServer.GetMetric))
 	router.Get("/value/{metricType}/{metricName}", http.HandlerFunc(transportServer.GetMetricOld))
