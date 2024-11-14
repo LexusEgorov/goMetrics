@@ -2,7 +2,6 @@ package db
 
 import (
 	"database/sql"
-	"fmt"
 	"net/http"
 
 	"github.com/LexusEgorov/goMetrics/internal/dohsimpson"
@@ -40,15 +39,14 @@ func (d DB) Close() {
 }
 
 func (d DB) Check() bool {
-	if d.db == nil {
-		fmt.Println("CHECK: NIL")
-		return false
-	}
+	return d.db != nil
+	// if d.db == nil {
+	// 	return false
+	// }
 
-	fmt.Println("CHECK: PING")
-	err := d.db.Ping()
+	// err := d.db.Ping()
 
-	return bool(err == nil)
+	// return bool(err == nil)
 }
 
 func NewDB(host string) DB {
