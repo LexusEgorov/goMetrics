@@ -244,6 +244,7 @@ func (t transportServer) CheckDB(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusInternalServerError)
 	case <-ctx.Done():
+		fmt.Println("TIMEOUT")
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
