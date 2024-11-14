@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 
 	"github.com/LexusEgorov/goMetrics/internal/dohsimpson"
@@ -40,9 +41,11 @@ func (d DB) Close() {
 
 func (d DB) Check() bool {
 	if d.db == nil {
+		fmt.Println("CHECK: NIL")
 		return false
 	}
 
+	fmt.Println("CHECK: PING")
 	err := d.db.Ping()
 
 	return bool(err == nil)
