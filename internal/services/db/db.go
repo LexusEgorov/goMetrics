@@ -56,7 +56,7 @@ func (d DB) AddCounter(key string, value int64) {
 	_, err := d.db.Exec(query, key, value)
 
 	if err != nil {
-		dohsimpson.NewDoh(http.StatusInternalServerError, err.Error())
+		dohsimpson.NewDoh(http.StatusInternalServerError, "DB (addCounter): "+err.Error())
 	}
 }
 
@@ -70,7 +70,7 @@ func (d DB) AddGauge(key string, value float64) {
 	_, err := d.db.Exec(query, key, value)
 
 	if err != nil {
-		dohsimpson.NewDoh(http.StatusInternalServerError, err.Error())
+		dohsimpson.NewDoh(http.StatusInternalServerError, "DB (addGauge): "+err.Error())
 	}
 }
 
@@ -81,7 +81,7 @@ func (d DB) GetAll() map[string]models.Metric {
 	rows, err := d.db.Query(query)
 
 	if err != nil {
-		dohsimpson.NewDoh(http.StatusInternalServerError, err.Error())
+		dohsimpson.NewDoh(http.StatusInternalServerError, "DB (getAll): "+err.Error())
 		return nil
 	}
 
@@ -92,7 +92,7 @@ func (d DB) GetAll() map[string]models.Metric {
 		err = rows.Scan(&m.ID, &m.MType, &m.Delta, &m.Value)
 
 		if err != nil {
-			dohsimpson.NewDoh(http.StatusInternalServerError, err.Error())
+			dohsimpson.NewDoh(http.StatusInternalServerError, "DB (getAll row): "+err.Error())
 			return nil
 		}
 
@@ -102,7 +102,7 @@ func (d DB) GetAll() map[string]models.Metric {
 	err = rows.Err()
 
 	if err != nil {
-		dohsimpson.NewDoh(http.StatusInternalServerError, err.Error())
+		dohsimpson.NewDoh(http.StatusInternalServerError, "DB (getAll rows): "+err.Error())
 		return nil
 	}
 
@@ -118,7 +118,7 @@ func (d DB) getMetric(key string) (*models.Metric, bool) {
 	err := row.Scan(&m.ID, &m.MType, &m.Delta, &m.Value)
 
 	if err != nil {
-		dohsimpson.NewDoh(http.StatusInternalServerError, err.Error())
+		dohsimpson.NewDoh(http.StatusInternalServerError, "DB (getMetric): "+err.Error())
 		return nil, false
 	}
 
