@@ -2,7 +2,6 @@ package db
 
 import (
 	"database/sql"
-	"fmt"
 	"net/http"
 
 	"github.com/LexusEgorov/goMetrics/internal/dohsimpson"
@@ -43,14 +42,7 @@ func (d *DB) connect(host string) {
 	defer d.db.Close()
 }
 
-func (d DB) close() {
-	if d.db != nil {
-		d.db.Close()
-	}
-}
-
 func (d DB) Check() bool {
-	fmt.Println("PING")
 	return d.db != nil
 }
 
@@ -158,6 +150,5 @@ func NewDB(host string) keeper.Storager {
 
 	db.connect(host)
 
-	defer db.close()
 	return db
 }
