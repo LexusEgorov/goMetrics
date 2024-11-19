@@ -71,12 +71,12 @@ func NewServer() Server {
 		db = envDB
 	}
 
-	if db != "" {
-		mode = DBStorage
-	}
-
 	if storePath != "" {
 		mode = FileStorage
+	}
+
+	if db != "" {
+		mode = DBStorage
 	}
 
 	return Server{
