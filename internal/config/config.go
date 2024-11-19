@@ -7,9 +7,9 @@ import (
 )
 
 const (
-	MEM_STORAGE = iota
-	FILE_STORAGE
-	DB_STORAGE
+	MemStorage = iota
+	FileStorage
+	DBStorage
 )
 
 type Server struct {
@@ -22,7 +22,7 @@ type Server struct {
 }
 
 func NewServer() Server {
-	mode := MEM_STORAGE
+	mode := MemStorage
 
 	var host string
 	var storeInterval int
@@ -39,7 +39,7 @@ func NewServer() Server {
 
 	envHost := os.Getenv("ADDRESS")
 	envInterval := os.Getenv("STORE_INTERVAL")
-	envPath := os.Getenv("FILE_STORAGE_PATH")
+	envPath := os.Getenv("FileStorage_PATH")
 	envRestore := os.Getenv("RESTORE")
 	envDB := os.Getenv("DATABASE_DSN")
 
@@ -72,11 +72,11 @@ func NewServer() Server {
 	}
 
 	if db != "" {
-		mode = DB_STORAGE
+		mode = DBStorage
 	}
 
 	if storePath != "" {
-		mode = FILE_STORAGE
+		mode = FileStorage
 	}
 
 	return Server{

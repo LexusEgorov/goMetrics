@@ -106,7 +106,7 @@ func (fs fileStorage) GetAll() map[string]models.Metric {
 	return fs.storage.GetAll()
 }
 
-func (f fileStorage) Check() bool {
+func (fs fileStorage) Check() bool {
 	return true
 }
 

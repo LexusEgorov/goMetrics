@@ -37,9 +37,9 @@ func (s serverRunner) Run(config configPkg.Server) error {
 	var storage keeper.Storager
 
 	switch config.Mode {
-	case configPkg.FILE_STORAGE:
+	case configPkg.FileStorage:
 		storage = filestorage.NewFileStorage(config.StorePath, config.StoreInterval, config.Restore)
-	case configPkg.DB_STORAGE:
+	case configPkg.DBStorage:
 		storage = db.NewDB(config.Host)
 	default:
 		storage = storagePkg.NewStorage(make(map[string]models.Metric))
