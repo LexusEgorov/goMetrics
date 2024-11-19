@@ -25,7 +25,7 @@ func (d *DB) connect(host string) {
 
 	createTableSQL := `
 	CREATE TABLE IF NOT EXISTS metrics (
-		id SERIAL PRIMARY KEY,
+		id VARCHAR(255) PRIMARY KEY,
 		mtype VARCHAR(50) NOT NULL,
 		delta BIGINT,
 		value DOUBLE PRECISION
@@ -114,7 +114,7 @@ func (d DB) GetAll() map[string]models.Metric {
 }
 
 func (d DB) getMetric(key string) (*models.Metric, bool) {
-	query := `SELECT * FROM metrics WHERE id = ?`
+	query := `SELECT * FROM metrics WHERE id = $1`
 
 	row := d.db.QueryRow(query, key)
 
