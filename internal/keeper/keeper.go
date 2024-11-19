@@ -17,6 +17,7 @@ type Storager interface {
 	GetCounter(key string) (int64, bool)
 	GetAll() map[string]models.Metric
 	Check() bool
+	Close()
 }
 
 type keeper struct {

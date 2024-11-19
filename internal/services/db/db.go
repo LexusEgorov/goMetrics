@@ -38,8 +38,12 @@ func (d *DB) connect(host string) {
 		d.db = nil
 		return
 	}
+}
 
-	defer d.db.Close()
+func (d DB) Close() {
+	if d.db != nil {
+		d.db.Close()
+	}
 }
 
 func (d DB) Check() bool {

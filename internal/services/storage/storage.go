@@ -59,6 +59,8 @@ func (m memStorage) Check() bool {
 	return true
 }
 
+func (m memStorage) Close() {}
+
 func NewStorage(metrics map[string]models.Metric) keeper.Storager {
 	storage := &memStorage{
 		data: metrics,

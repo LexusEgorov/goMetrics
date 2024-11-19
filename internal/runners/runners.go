@@ -45,6 +45,8 @@ func (s serverRunner) Run(config configPkg.Server) error {
 		storage = storagePkg.NewStorage(make(map[string]models.Metric))
 	}
 
+	defer storage.Close()
+
 	keeper := keeper.NewKeeper(storage)
 	transportServer := transport.NewServer(keeper, router, sugar)
 
