@@ -6,15 +6,24 @@ import (
 	"strconv"
 )
 
+const (
+	MEM_STORAGE = iota
+	FILE_STORAGE
+	DB_STORAGE
+)
+
 type Server struct {
 	Host          string
 	StoreInterval int
 	StorePath     string
 	Restore       bool
 	DB            string
+	Mode          int
 }
 
 func NewServer() Server {
+	mode := MEM_STORAGE
+
 	var host string
 	var storeInterval int
 	var storePath string
@@ -22,8 +31,8 @@ func NewServer() Server {
 	var db string
 
 	flag.StringVar(&host, "a", "localhost:8080", "address and port to run server")
-	flag.StringVar(&storePath, "i", "backup.txt", "store path")
-	flag.StringVar(&db, "d", "empty", "db path")
+	flag.StringVar(&storePath, "i", "", "store path")
+	flag.StringVar(&db, "d", "", "db path")
 	flag.IntVar(&storeInterval, "f", 300, "save interval")
 	flag.BoolVar(&restore, "r", false, "is restore data?")
 	flag.Parse()
@@ -62,12 +71,21 @@ func NewServer() Server {
 		db = envDB
 	}
 
+	if db != "" {
+		mode = DB_STORAGE
+	}
+
+	if storePath != "" {
+		mode = FILE_STORAGE
+	}
+
 	return Server{
 		Host:          host,
 		StoreInterval: storeInterval,
 		StorePath:     storePath,
 		Restore:       restore,
 		DB:            db,
+		Mode:          mode,
 	}
 }
 

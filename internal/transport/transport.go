@@ -2,40 +2,33 @@ package transport
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"text/template"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
 
-	"github.com/LexusEgorov/goMetrics/internal/db"
 	"github.com/LexusEgorov/goMetrics/internal/dohsimpson"
 	"github.com/LexusEgorov/goMetrics/internal/middleware"
 	"github.com/LexusEgorov/goMetrics/internal/models"
 )
 
-type Saver interface {
+type Keeper interface {
 	SaveOld(mName, mType, value string) *dohsimpson.Error
 	Save(m models.Metric) (*models.Metric, *dohsimpson.Error)
-}
-
-type Reader interface {
 	Read(key, mType string) (*models.Metric, *dohsimpson.Error)
 	ReadAll() map[string]models.Metric
+	Check() bool
 }
 
 type transportServer struct {
 	Router *chi.Mux
-	reader Reader
-	saver  Saver
-	db     db.DB
+	keeper Keeper
 }
 
 func (t transportServer) UpdateMetricOld(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +36,7 @@ func (t transportServer) UpdateMetricOld(w http.ResponseWriter, r *http.Request)
 	mType := r.PathValue("metricType")
 	mValue := r.PathValue("metricValue")
 
-	saveError := t.saver.SaveOld(mName, mType, mValue)
+	saveError := t.keeper.SaveOld(mName, mType, mValue)
 
 	if saveError != nil {
 		w.WriteHeader(saveError.Code)
@@ -72,14 +65,14 @@ func (t transportServer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	savedMetric, saveError := t.saver.Save(currentMetric)
+	savedMetric, saveError := t.keeper.Save(currentMetric)
 
 	if saveError != nil {
 		w.WriteHeader(saveError.Code)
 		return
 	}
 
-	updatedMetric, readError := t.reader.Read(savedMetric.ID, savedMetric.MType)
+	updatedMetric, readError := t.keeper.Read(savedMetric.ID, savedMetric.MType)
 
 	if readError != nil {
 		w.WriteHeader(readError.Code)
@@ -106,7 +99,7 @@ func (t transportServer) GetMetricOld(w http.ResponseWriter, r *http.Request) {
 		MType: mType,
 	}
 
-	foundMetric, readError := t.reader.Read(currentMetric.ID, currentMetric.MType)
+	foundMetric, readError := t.keeper.Read(currentMetric.ID, currentMetric.MType)
 
 	if readError != nil {
 		w.WriteHeader(readError.Code)
@@ -140,7 +133,7 @@ func (t transportServer) GetMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	foundMetric, readError := t.reader.Read(currentMetric.ID, currentMetric.MType)
+	foundMetric, readError := t.keeper.Read(currentMetric.ID, currentMetric.MType)
 
 	if readError != nil {
 		w.WriteHeader(readError.Code)
@@ -172,7 +165,7 @@ func (t transportServer) GetMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metrics := t.reader.ReadAll()
+	metrics := t.keeper.ReadAll()
 	response, err := json.Marshal(metrics)
 
 	if err != nil {
@@ -188,7 +181,7 @@ func (t transportServer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
 	pageData := PageData{
 		Title:   "Metrics",
 		Header:  "Metrics list: ",
-		Metrics: t.reader.ReadAll(),
+		Metrics: t.keeper.ReadAll(),
 	}
 
 	page, err := template.New("webpage").
@@ -226,34 +219,18 @@ func (t transportServer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
 }
 
 func (t transportServer) CheckDB(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	done := make(chan bool)
-
-	go func() {
-		done <- t.db.Check()
-	}()
-
-	select {
-	case success := <-done:
-		if success {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		w.WriteHeader(http.StatusInternalServerError)
-	case <-ctx.Done():
-		w.WriteHeader(http.StatusInternalServerError)
+	if t.keeper.Check() {
+		w.WriteHeader(http.StatusOK)
+		return
 	}
+
+	w.WriteHeader(http.StatusInternalServerError)
 }
 
-func NewServer(saver Saver, reader Reader, router *chi.Mux, logger *zap.SugaredLogger, db db.DB) *transportServer {
+func NewServer(keeper Keeper, router *chi.Mux, logger *zap.SugaredLogger) *transportServer {
 	transportServer := transportServer{
 		Router: router,
-		reader: reader,
-		saver:  saver,
-		db:     db,
+		keeper: keeper,
 	}
 
 	router.Use(middleware.WithLogging(logger))

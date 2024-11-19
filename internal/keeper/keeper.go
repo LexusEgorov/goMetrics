@@ -1,4 +1,4 @@
-package saver
+package keeper
 
 import (
 	"fmt"
@@ -13,21 +13,51 @@ import (
 type Storager interface {
 	AddGauge(key string, value float64)
 	AddCounter(key string, value int64)
+	GetGauge(key string) (float64, bool)
+	GetCounter(key string) (int64, bool)
 	GetAll() map[string]models.Metric
+	Check() bool
 }
 
-type FileWriter interface {
-	RunSave(storage Storager, interval int)
-	Save(metrics map[string]models.Metric)
-	Close()
+type keeper struct {
+	storage Storager
 }
 
-type saver struct {
-	storage    Storager
-	fileWriter FileWriter
+func (k keeper) Read(key, mType string) (*models.Metric, *dohsimpson.Error) {
+	currentMetric := models.Metric{
+		ID:    key,
+		MType: mType,
+	}
+
+	var isFound = false
+
+	switch mType {
+	case "gauge":
+		gaugeValue, found := k.storage.GetGauge(key)
+
+		currentMetric.Value = &gaugeValue
+		isFound = found
+	case "counter":
+		counterValue, found := k.storage.GetCounter(key)
+
+		currentMetric.Delta = &counterValue
+		isFound = found
+	default:
+		return nil, dohsimpson.NewDoh(http.StatusNotFound, fmt.Sprintf("reader: wrong mType (%s)", mType))
+	}
+
+	if !isFound {
+		return nil, dohsimpson.NewDoh(http.StatusNotFound, fmt.Sprintf("reader: metric not found: %s (%s)", key, mType))
+	}
+
+	return &currentMetric, nil
 }
 
-func (s saver) SaveOld(mName, mType, mValue string) *dohsimpson.Error {
+func (k keeper) ReadAll() map[string]models.Metric {
+	return k.storage.GetAll()
+}
+
+func (k keeper) SaveOld(mName, mType, mValue string) *dohsimpson.Error {
 	if mName == "" || mValue == "" {
 		return dohsimpson.NewDoh(http.StatusNotFound, "metric not found (empty data) (saver)")
 	}
@@ -40,7 +70,7 @@ func (s saver) SaveOld(mName, mType, mValue string) *dohsimpson.Error {
 			return dohsimpson.NewDoh(http.StatusBadRequest, err.Error())
 		}
 
-		s.storage.AddGauge(mName, float64(value))
+		k.storage.AddGauge(mName, float64(value))
 	case "counter":
 		value, err := strconv.ParseInt(mValue, 0, 64)
 
@@ -48,19 +78,15 @@ func (s saver) SaveOld(mName, mType, mValue string) *dohsimpson.Error {
 			return dohsimpson.NewDoh(http.StatusBadRequest, err.Error())
 		}
 
-		s.storage.AddCounter(mName, int64(value))
+		k.storage.AddCounter(mName, int64(value))
 	default:
 		return dohsimpson.NewDoh(http.StatusBadRequest, fmt.Sprintf("unknown metric Type (%s) (saver)", mType))
-	}
-
-	if s.fileWriter != nil {
-		s.fileWriter.Save(s.storage.GetAll())
 	}
 
 	return nil
 }
 
-func (s saver) Save(m models.Metric) (*models.Metric, *dohsimpson.Error) {
+func (k keeper) Save(m models.Metric) (*models.Metric, *dohsimpson.Error) {
 	mName := m.ID
 	mType := m.MType
 	mValue := m.Value
@@ -76,23 +102,22 @@ func (s saver) Save(m models.Metric) (*models.Metric, *dohsimpson.Error) {
 
 	switch mType {
 	case "gauge":
-		s.storage.AddGauge(mName, float64(*mValue))
+		k.storage.AddGauge(mName, float64(*mValue))
 	case "counter":
-		s.storage.AddCounter(mName, int64(*mDelta))
+		k.storage.AddCounter(mName, int64(*mDelta))
 	default:
 		return nil, dohsimpson.NewDoh(http.StatusBadRequest, fmt.Sprintf("saver: unknown metric Type (%s)", mType))
-	}
-
-	if s.fileWriter != nil {
-		s.fileWriter.Save(s.storage.GetAll())
 	}
 
 	return &m, nil
 }
 
-func NewSaver(storage Storager, fileWriter FileWriter) transport.Saver {
-	return saver{
-		storage:    storage,
-		fileWriter: fileWriter,
+func (k keeper) Check() bool {
+	return k.storage.Check()
+}
+
+func NewKeeper(storage Storager) transport.Keeper {
+	return keeper{
+		storage: storage,
 	}
 }

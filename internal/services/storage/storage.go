@@ -1,9 +1,8 @@
 package storage
 
 import (
+	"github.com/LexusEgorov/goMetrics/internal/keeper"
 	"github.com/LexusEgorov/goMetrics/internal/models"
-	"github.com/LexusEgorov/goMetrics/internal/services/reader"
-	"github.com/LexusEgorov/goMetrics/internal/services/saver"
 )
 
 type memStorage struct {
@@ -56,10 +55,14 @@ func (m memStorage) GetAll() map[string]models.Metric {
 	return m.data
 }
 
-func NewStorage(metrics map[string]models.Metric) (saver.Storager, reader.Storager) {
+func (m memStorage) Check() bool {
+	return true
+}
+
+func NewStorage(metrics map[string]models.Metric) keeper.Storager {
 	storage := &memStorage{
 		data: metrics,
 	}
 
-	return storage, storage
+	return storage
 }
