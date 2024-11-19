@@ -34,7 +34,7 @@ func (d *DB) connect(host string) {
 	_, err = d.db.Exec(createTableSQL)
 
 	if err != nil {
-		dohsimpson.NewDoh(http.StatusInternalServerError, err.Error())
+		dohsimpson.NewDoh(http.StatusInternalServerError, "DB (createTable): "+err.Error())
 		d.db = nil
 		return
 	}
