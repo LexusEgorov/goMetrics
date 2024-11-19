@@ -23,7 +23,15 @@ func (d *DB) connect(host string) {
 		return
 	}
 
-	err = d.db.Ping()
+	createTableSQL := `
+	CREATE TABLE IF NOT EXISTS metrics (
+		id SERIAL PRIMARY KEY,
+		mtype VARCHAR(50) NOT NULL,
+		delta BIGINT,
+		value DOUBLE PRECISION
+	);`
+
+	_, err = d.db.Exec(createTableSQL)
 
 	if err != nil {
 		dohsimpson.NewDoh(http.StatusInternalServerError, err.Error())
