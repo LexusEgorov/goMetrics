@@ -2,12 +2,14 @@ package transport
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"text/template"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-resty/resty/v2"
@@ -219,12 +221,27 @@ func (t transportServer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
 }
 
 func (t transportServer) CheckDB(w http.ResponseWriter, r *http.Request) {
-	if t.keeper.Check() {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 
-	w.WriteHeader(http.StatusInternalServerError)
+	defer cancel()
+
+	done := make(chan bool)
+
+	go func() {
+		done <- t.keeper.Check()
+	}()
+
+	select {
+	case success := <-done:
+		if success {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		w.WriteHeader(http.StatusInternalServerError)
+	case <-ctx.Done():
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 }
 
 func NewServer(keeper Keeper, router *chi.Mux, logger *zap.SugaredLogger) *transportServer {

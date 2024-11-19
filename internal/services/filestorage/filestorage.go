@@ -21,7 +21,7 @@ type fileStorage struct {
 	storage  keeper.Storager
 }
 
-func (f fileStorage) save(metrics map[string]models.Metric) {
+func (fs fileStorage) save(metrics map[string]models.Metric) {
 	jsonedMetrics, err := json.Marshal(metrics)
 
 	if err != nil {
@@ -29,28 +29,28 @@ func (f fileStorage) save(metrics map[string]models.Metric) {
 		return
 	}
 
-	if err = f.file.Truncate(0); err != nil {
+	if err = fs.file.Truncate(0); err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	if _, err = f.file.Seek(0, 0); err != nil {
+	if _, err = fs.file.Seek(0, 0); err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	f.file.Write(jsonedMetrics)
+	fs.file.Write(jsonedMetrics)
 }
 
-func (f fileStorage) runSave(interval int) {
+func (fs fileStorage) runSave(interval int) {
 	for {
-		f.save(f.storage.GetAll())
+		fs.save(fs.storage.GetAll())
 		time.Sleep(time.Duration(interval) * time.Second)
 	}
 }
 
-func (f fileStorage) read() map[string]models.Metric {
-	reader := bufio.NewReader(f.file)
+func (fs fileStorage) read() map[string]models.Metric {
+	reader := bufio.NewReader(fs.file)
 	metrics, err := io.ReadAll(reader)
 
 	if err != nil {
@@ -74,8 +74,8 @@ func (f fileStorage) read() map[string]models.Metric {
 	return parsedMetrics
 }
 
-func (f fileStorage) Close() {
-	f.file.Close()
+func (fs fileStorage) Close() {
+	fs.file.Close()
 }
 
 func (fs fileStorage) AddGauge(key string, value float64) {
