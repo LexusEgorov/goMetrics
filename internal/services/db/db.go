@@ -53,23 +53,102 @@ func (d DB) Check() bool {
 }
 
 func (d DB) AddCounter(key string, value int64) {
-	panic("unimplemented")
+	query := `
+		INSERT INTO metrics (id, mtype, delta) 
+		VALUES ($1, 'counter', $2)
+		ON CONFLICT (id) 
+		DO UPDATE SET delta = metrics.delta + EXCLUDED.delta;`
+
+	_, err := d.db.Exec(query, key, value)
+
+	if err != nil {
+		dohsimpson.NewDoh(http.StatusInternalServerError, err.Error())
+	}
 }
 
 func (d DB) AddGauge(key string, value float64) {
-	panic("unimplemented")
+	query := `
+	INSERT INTO metrics (id, mtype, value) 
+	VALUES ($1, 'gauge', $2)
+	ON CONFLICT (id) 
+	DO UPDATE SET value = EXCLUDED.value;`
+
+	_, err := d.db.Exec(query, key, value)
+
+	if err != nil {
+		dohsimpson.NewDoh(http.StatusInternalServerError, err.Error())
+	}
 }
 
 func (d DB) GetAll() map[string]models.Metric {
-	panic("unimplemented")
+	metrics := make(map[string]models.Metric)
+	query := `SELECT * FROM metrics`
+
+	rows, err := d.db.Query(query)
+
+	if err != nil {
+		dohsimpson.NewDoh(http.StatusInternalServerError, err.Error())
+		return nil
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var m models.Metric
+		err = rows.Scan(&m.ID, &m.MType, &m.Delta, &m.Value)
+
+		if err != nil {
+			dohsimpson.NewDoh(http.StatusInternalServerError, err.Error())
+			return nil
+		}
+
+		metrics[m.ID] = m
+	}
+
+	err = rows.Err()
+
+	if err != nil {
+		dohsimpson.NewDoh(http.StatusInternalServerError, err.Error())
+		return nil
+	}
+
+	return metrics
+}
+
+func (d DB) getMetric(key string) (*models.Metric, bool) {
+	query := `SELECT * FROM metrics WHERE id = ?`
+
+	row := d.db.QueryRow(query, key)
+
+	var m models.Metric
+	err := row.Scan(&m.ID, &m.MType, &m.Delta, &m.Value)
+
+	if err != nil {
+		dohsimpson.NewDoh(http.StatusInternalServerError, err.Error())
+		return nil, false
+	}
+
+	return &m, true
 }
 
 func (d DB) GetCounter(key string) (int64, bool) {
-	panic("unimplemented")
+	metric, isFound := d.getMetric(key)
+
+	if !isFound {
+		return 0, false
+	}
+
+	return int64(*metric.Delta), true
 }
 
 func (d DB) GetGauge(key string) (float64, bool) {
-	panic("unimplemented")
+	metric, isFound := d.getMetric(key)
+
+	if !isFound {
+		return 0, false
+	}
+
+	return float64(*metric.Value), true
 }
 
 func NewDB(host string) keeper.Storager {
