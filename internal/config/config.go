@@ -31,7 +31,7 @@ func NewServer() Server {
 	var db string
 
 	flag.StringVar(&host, "a", "localhost:8080", "address and port to run server")
-	flag.StringVar(&storePath, "i", "", "store path")
+	flag.StringVar(&storePath, "i", "backup.txt", "store path")
 	flag.StringVar(&db, "d", "", "db path")
 	flag.IntVar(&storeInterval, "f", 300, "save interval")
 	flag.BoolVar(&restore, "r", false, "is restore data?")
