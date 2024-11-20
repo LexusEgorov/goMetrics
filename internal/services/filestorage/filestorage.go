@@ -21,6 +21,33 @@ type fileStorage struct {
 	storage  keeper.Storager
 }
 
+func (fs fileStorage) MassSave(metrics []models.Metric) ([]models.Metric, error) {
+	savedMetrics := make([]models.Metric, len(metrics))
+
+	for i, metric := range metrics {
+		switch metric.MType {
+		case "gauge":
+			fs.storage.AddGauge(metric.ID, *metric.Value)
+			savedMetrics[i] = metric
+		case "counter":
+			oldValue, isFound := fs.storage.GetCounter(metric.ID)
+
+			if !isFound {
+				continue
+			}
+
+			fs.storage.AddCounter(metric.ID, int64(*metric.Value))
+
+			newValue := *metric.Delta + oldValue
+
+			metric.Delta = &newValue
+			savedMetrics[i] = metric
+		}
+	}
+
+	return savedMetrics, nil
+}
+
 func (fs fileStorage) save(metrics map[string]models.Metric) {
 	jsonedMetrics, err := json.Marshal(metrics)
 

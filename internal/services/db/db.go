@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"net/http"
+	"strings"
 
 	"github.com/LexusEgorov/goMetrics/internal/dohsimpson"
 	"github.com/LexusEgorov/goMetrics/internal/keeper"
@@ -48,6 +49,87 @@ func (d DB) Close() {
 
 func (d DB) Check() bool {
 	return d.db != nil
+}
+
+func (d DB) MassSave(metrics []models.Metric) ([]models.Metric, error) {
+	savedMetrics := make([]string, len(metrics))
+
+	tx, err := d.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+
+	defer tx.Rollback()
+
+	for i, metric := range metrics {
+		savedMetrics[i] = metric.ID
+
+		switch metric.MType {
+		case "gauge":
+			query := `
+				INSERT INTO metrics (id, mtype, value) 
+				VALUES ($1, 'gauge', $2)
+				ON CONFLICT (id) 
+				DO UPDATE SET value = EXCLUDED.value;`
+
+			_, err := d.db.Exec(query, metric.ID, metric.Value)
+
+			if err != nil {
+				dohsimpson.NewDoh(http.StatusInternalServerError, "DB (Mass:addGauge): "+err.Error())
+			}
+
+		case "counter":
+			query := `
+				INSERT INTO metrics (id, mtype, delta) 
+				VALUES ($1, 'counter', $2)
+				ON CONFLICT (id) 
+				DO UPDATE SET delta = metrics.delta + EXCLUDED.delta;`
+
+			_, err := d.db.Exec(query, metric.ID, metric.Delta)
+
+			if err != nil {
+				dohsimpson.NewDoh(http.StatusInternalServerError, "DB (Mass:addCounter): "+err.Error())
+			}
+		}
+	}
+
+	err = tx.Commit()
+
+	if err != nil {
+		dohsimpson.NewDoh(http.StatusInternalServerError, "DB (Mass:commit): "+err.Error())
+	}
+
+	query := `SELECT * FROM metrics WHERE id IN (&1)`
+	rows, err := d.db.Query(query, strings.Join(savedMetrics, ", "))
+
+	if err != nil {
+		dohsimpson.NewDoh(http.StatusInternalServerError, "DB (Mass:read): "+err.Error())
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	resultMetrics := make([]models.Metric, 0)
+	for rows.Next() {
+		var m models.Metric
+		err = rows.Scan(&m.ID, &m.MType, &m.Delta, &m.Value)
+
+		if err != nil {
+			dohsimpson.NewDoh(http.StatusInternalServerError, "DB (Mass:read row): "+err.Error())
+			return nil, err
+		}
+
+		resultMetrics = append(resultMetrics, m)
+	}
+
+	err = rows.Err()
+
+	if err != nil {
+		dohsimpson.NewDoh(http.StatusInternalServerError, "DB (Mass:read rows): "+err.Error())
+		return nil, err
+	}
+
+	return resultMetrics, nil
 }
 
 func (d DB) AddCounter(key string, value int64) {

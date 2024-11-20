@@ -23,6 +23,7 @@ import (
 type Keeper interface {
 	SaveOld(mName, mType, value string) *dohsimpson.Error
 	Save(m models.Metric) (*models.Metric, *dohsimpson.Error)
+	MassSave(m []models.Metric) ([]models.Metric, *dohsimpson.Error)
 	Read(key, mType string) (*models.Metric, *dohsimpson.Error)
 	ReadAll() map[string]models.Metric
 	Check() bool
@@ -82,6 +83,45 @@ func (t transportServer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response, err := json.Marshal(updatedMetric)
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(response)
+}
+
+func (t transportServer) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
+	contentType := r.Header.Get("Content-Type")
+
+	if contentType != "application/json" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var metrics []models.Metric
+	body, err := io.ReadAll(r.Body)
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if err = json.Unmarshal(body, &metrics); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	savedMetrics, saveError := t.keeper.MassSave(metrics)
+
+	if saveError != nil {
+		w.WriteHeader(saveError.Code)
+		return
+	}
+
+	response, err := json.Marshal(savedMetrics)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -254,12 +294,13 @@ func NewServer(keeper Keeper, router *chi.Mux, logger *zap.SugaredLogger) *trans
 	router.Use(middleware.WithDecoding)
 	router.Use(middleware.WithEncoding)
 
-	router.Get("/ping", http.HandlerFunc(transportServer.CheckDB))
 	router.Get("/", http.HandlerFunc(transportServer.GetMetrics))
+	router.Get("/ping", http.HandlerFunc(transportServer.CheckDB))
 	router.Post("/value/", http.HandlerFunc(transportServer.GetMetric))
 	router.Get("/value/{metricType}/{metricName}", http.HandlerFunc(transportServer.GetMetricOld))
 	router.Post("/update/", http.HandlerFunc(transportServer.UpdateMetric))
 	router.Post("/update/{metricType}/{metricName}/{metricValue}", http.HandlerFunc(transportServer.UpdateMetricOld))
+	router.Post("/updates/", http.HandlerFunc(transportServer.UpdateMetrics))
 
 	return &transportServer
 }

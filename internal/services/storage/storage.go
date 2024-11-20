@@ -9,6 +9,33 @@ type memStorage struct {
 	data map[string]models.Metric
 }
 
+func (m *memStorage) MassSave(metrics []models.Metric) ([]models.Metric, error) {
+	savedMetrics := make([]models.Metric, len(metrics))
+
+	for i, metric := range metrics {
+		switch metric.MType {
+		case "gauge":
+			m.AddGauge(metric.ID, *metric.Value)
+			savedMetrics[i] = metric
+		case "counter":
+			oldValue, isFound := m.GetCounter(metric.ID)
+
+			if !isFound {
+				continue
+			}
+
+			m.AddCounter(metric.ID, int64(*metric.Value))
+
+			newValue := *metric.Delta + oldValue
+
+			metric.Delta = &newValue
+			savedMetrics[i] = metric
+		}
+	}
+
+	return savedMetrics, nil
+}
+
 func (m *memStorage) AddGauge(key string, value float64) {
 	m.data[key] = models.Metric{
 		ID:    key,

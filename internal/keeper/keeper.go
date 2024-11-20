@@ -16,6 +16,7 @@ type Storager interface {
 	GetGauge(key string) (float64, bool)
 	GetCounter(key string) (int64, bool)
 	GetAll() map[string]models.Metric
+	MassSave(metrics []models.Metric) ([]models.Metric, error)
 	Check() bool
 	Close()
 }
@@ -111,6 +112,16 @@ func (k keeper) Save(m models.Metric) (*models.Metric, *dohsimpson.Error) {
 	}
 
 	return &m, nil
+}
+
+func (k keeper) MassSave(m []models.Metric) ([]models.Metric, *dohsimpson.Error) {
+	savedMetrics, err := k.storage.MassSave(m)
+
+	if err != nil {
+		return nil, dohsimpson.NewDoh(http.StatusInternalServerError, err.Error())
+	}
+
+	return savedMetrics, nil
 }
 
 func (k keeper) Check() bool {
