@@ -18,13 +18,9 @@ func (m *memStorage) MassSave(metrics []models.Metric) ([]models.Metric, error) 
 			m.AddGauge(metric.ID, *metric.Value)
 			savedMetrics[i] = metric
 		case "counter":
-			oldValue, isFound := m.GetCounter(metric.ID)
+			oldValue, _ := m.GetCounter(metric.ID)
 
-			if !isFound {
-				continue
-			}
-
-			m.AddCounter(metric.ID, int64(*metric.Value))
+			m.AddCounter(metric.ID, int64(*metric.Delta))
 
 			newValue := *metric.Delta + oldValue
 

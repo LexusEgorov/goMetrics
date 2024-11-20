@@ -30,13 +30,9 @@ func (fs fileStorage) MassSave(metrics []models.Metric) ([]models.Metric, error)
 			fs.storage.AddGauge(metric.ID, *metric.Value)
 			savedMetrics[i] = metric
 		case "counter":
-			oldValue, isFound := fs.storage.GetCounter(metric.ID)
+			oldValue, _ := fs.storage.GetCounter(metric.ID)
 
-			if !isFound {
-				continue
-			}
-
-			fs.storage.AddCounter(metric.ID, int64(*metric.Value))
+			fs.storage.AddCounter(metric.ID, *metric.Delta)
 
 			newValue := *metric.Delta + oldValue
 
@@ -45,6 +41,7 @@ func (fs fileStorage) MassSave(metrics []models.Metric) ([]models.Metric, error)
 		}
 	}
 
+	fs.save(fs.storage.GetAll())
 	return savedMetrics, nil
 }
 

@@ -76,6 +76,7 @@ func (d DB) MassSave(metrics []models.Metric) ([]models.Metric, error) {
 
 			if err != nil {
 				dohsimpson.NewDoh(http.StatusInternalServerError, "DB (Mass:addGauge): "+err.Error())
+				return nil, err
 			}
 
 		case "counter":
@@ -89,6 +90,7 @@ func (d DB) MassSave(metrics []models.Metric) ([]models.Metric, error) {
 
 			if err != nil {
 				dohsimpson.NewDoh(http.StatusInternalServerError, "DB (Mass:addCounter): "+err.Error())
+				return nil, err
 			}
 		}
 	}
@@ -99,7 +101,7 @@ func (d DB) MassSave(metrics []models.Metric) ([]models.Metric, error) {
 		dohsimpson.NewDoh(http.StatusInternalServerError, "DB (Mass:commit): "+err.Error())
 	}
 
-	query := `SELECT * FROM metrics WHERE id IN (&1)`
+	query := `SELECT * FROM metrics WHERE id IN ($1)`
 	rows, err := d.db.Query(query, strings.Join(savedMetrics, ", "))
 
 	if err != nil {

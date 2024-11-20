@@ -1,1 +1,1 @@
-{}
+{"Count":{"id":"Count","type":"gauge","value":5000},"Count1":{"id":"Count1","type":"counter","delta":5000}}
