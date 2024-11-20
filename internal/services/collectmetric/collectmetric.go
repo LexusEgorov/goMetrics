@@ -50,7 +50,6 @@ type metricAgent struct {
 
 func (agent *metricAgent) collectMetrics() {
 	for {
-		fmt.Println("Collect started")
 		var memStats runtime.MemStats
 		runtime.ReadMemStats(&memStats)
 
@@ -104,7 +103,6 @@ func (agent *metricAgent) collectMetrics() {
 			Value: &randomValue,
 		})
 
-		fmt.Println("Collect finished")
 		time.Sleep(time.Duration(agent.config.PollInterval) * time.Second)
 	}
 }

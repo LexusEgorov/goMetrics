@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/LexusEgorov/goMetrics/internal/dohsimpson"
+	"github.com/LexusEgorov/goMetrics/internal/errors"
 	"github.com/LexusEgorov/goMetrics/internal/middleware"
 	"github.com/LexusEgorov/goMetrics/internal/models"
 )
@@ -308,6 +309,8 @@ func NewServer(keeper Keeper, router *chi.Mux, logger *zap.SugaredLogger) *trans
 type transportClient struct{}
 
 func (t transportClient) SendMetric(host, metricName, metricType, metricValue string) {
+	const maxRetries = 3
+
 	url := fmt.Sprintf("http://%s/update/%s/%s/%s", host, metricType, metricName, metricValue)
 	//url := fmt.Sprintf("http://%s/update", host)
 
@@ -349,14 +352,23 @@ func (t transportClient) SendMetric(host, metricName, metricType, metricValue st
 		return
 	}
 
-	_, err = client.R().
-		SetHeader("Content-Type", "application/json").
-		SetBody(body).
-		Post(url)
+	for retriesCount := 0; retriesCount < maxRetries; retriesCount++ {
+		resp, err := client.R().
+			SetHeader("Content-Type", "application/json").
+			SetBody(body).
+			Post(url)
 
-	if err != nil {
-		fmt.Printf("ERROR: %s\n", err)
-		return
+		if err != nil {
+			if errors.IsClientRetriable(resp.StatusCode()) {
+				sleepDuration := retriesCount*2 + 1
+
+				fmt.Printf("Error. Attempt: %d/%d Retry in %ds.\n", retriesCount+1, maxRetries, sleepDuration)
+				time.Sleep(time.Second * time.Duration(sleepDuration))
+				continue
+			}
+
+			return
+		}
 	}
 }
 

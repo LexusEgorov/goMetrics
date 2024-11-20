@@ -2,10 +2,13 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/LexusEgorov/goMetrics/internal/dohsimpson"
+	"github.com/LexusEgorov/goMetrics/internal/errors"
 	"github.com/LexusEgorov/goMetrics/internal/keeper"
 	"github.com/LexusEgorov/goMetrics/internal/models"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -17,6 +20,8 @@ type DB struct {
 
 func (d *DB) connect(host string) {
 	var err error
+	maxRetries := 3
+
 	d.db, err = sql.Open("pgx", host)
 
 	if err != nil {
@@ -32,12 +37,22 @@ func (d *DB) connect(host string) {
 		value DOUBLE PRECISION
 	);`
 
-	_, err = d.db.Exec(createTableSQL)
+	for retriesCount := 0; retriesCount <= maxRetries; retriesCount++ {
+		_, err = d.db.Exec(createTableSQL)
 
-	if err != nil {
-		dohsimpson.NewDoh(http.StatusInternalServerError, "DB (createTable): "+err.Error())
-		d.db = nil
-		return
+		if err != nil {
+			if errors.IsServerRetriable(err) && retriesCount < maxRetries {
+				sleepDuration := retriesCount*2 + 1
+
+				fmt.Printf("Error. Attempt: %d/%d Retry in %ds.\n", retriesCount+1, maxRetries, sleepDuration)
+				time.Sleep(time.Second * time.Duration(sleepDuration))
+				continue
+			}
+
+			dohsimpson.NewDoh(http.StatusInternalServerError, "DB (createTable): "+err.Error())
+			d.db = nil
+			return
+		}
 	}
 }
 
