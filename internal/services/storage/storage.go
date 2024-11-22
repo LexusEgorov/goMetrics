@@ -1,13 +1,35 @@
 package storage
 
 import (
+	"github.com/LexusEgorov/goMetrics/internal/keeper"
 	"github.com/LexusEgorov/goMetrics/internal/models"
-	"github.com/LexusEgorov/goMetrics/internal/services/reader"
-	"github.com/LexusEgorov/goMetrics/internal/services/saver"
 )
 
 type memStorage struct {
 	data map[string]models.Metric
+}
+
+func (m *memStorage) MassSave(metrics []models.Metric) ([]models.Metric, error) {
+	savedMetrics := make([]models.Metric, len(metrics))
+
+	for i, metric := range metrics {
+		switch metric.MType {
+		case "gauge":
+			m.AddGauge(metric.ID, *metric.Value)
+			savedMetrics[i] = metric
+		case "counter":
+			oldValue, _ := m.GetCounter(metric.ID)
+
+			m.AddCounter(metric.ID, int64(*metric.Delta))
+
+			newValue := *metric.Delta + oldValue
+
+			metric.Delta = &newValue
+			savedMetrics[i] = metric
+		}
+	}
+
+	return savedMetrics, nil
 }
 
 func (m *memStorage) AddGauge(key string, value float64) {
@@ -56,10 +78,16 @@ func (m memStorage) GetAll() map[string]models.Metric {
 	return m.data
 }
 
-func NewStorage(metrics map[string]models.Metric) (saver.Storager, reader.Storager) {
+func (m memStorage) Check() bool {
+	return true
+}
+
+func (m memStorage) Close() {}
+
+func NewStorage(metrics map[string]models.Metric) keeper.Storager {
 	storage := &memStorage{
 		data: metrics,
 	}
 
-	return storage, storage
+	return storage
 }

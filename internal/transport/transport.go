@@ -2,36 +2,37 @@ package transport
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"text/template"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
 
 	"github.com/LexusEgorov/goMetrics/internal/dohsimpson"
+	"github.com/LexusEgorov/goMetrics/internal/errors"
 	"github.com/LexusEgorov/goMetrics/internal/middleware"
 	"github.com/LexusEgorov/goMetrics/internal/models"
 )
 
-type Saver interface {
+type Keeper interface {
 	SaveOld(mName, mType, value string) *dohsimpson.Error
 	Save(m models.Metric) (*models.Metric, *dohsimpson.Error)
-}
-
-type Reader interface {
+	SaveBatch(m []models.Metric) ([]models.Metric, *dohsimpson.Error)
 	Read(key, mType string) (*models.Metric, *dohsimpson.Error)
 	ReadAll() map[string]models.Metric
+	Check() bool
 }
 
 type transportServer struct {
 	Router *chi.Mux
-	reader Reader
-	saver  Saver
+	keeper Keeper
 }
 
 func (t transportServer) UpdateMetricOld(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +40,7 @@ func (t transportServer) UpdateMetricOld(w http.ResponseWriter, r *http.Request)
 	mType := r.PathValue("metricType")
 	mValue := r.PathValue("metricValue")
 
-	saveError := t.saver.SaveOld(mName, mType, mValue)
+	saveError := t.keeper.SaveOld(mName, mType, mValue)
 
 	if saveError != nil {
 		w.WriteHeader(saveError.Code)
@@ -68,14 +69,14 @@ func (t transportServer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	savedMetric, saveError := t.saver.Save(currentMetric)
+	savedMetric, saveError := t.keeper.Save(currentMetric)
 
 	if saveError != nil {
 		w.WriteHeader(saveError.Code)
 		return
 	}
 
-	updatedMetric, readError := t.reader.Read(savedMetric.ID, savedMetric.MType)
+	updatedMetric, readError := t.keeper.Read(savedMetric.ID, savedMetric.MType)
 
 	if readError != nil {
 		w.WriteHeader(readError.Code)
@@ -83,6 +84,45 @@ func (t transportServer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response, err := json.Marshal(updatedMetric)
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(response)
+}
+
+func (t transportServer) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
+	contentType := r.Header.Get("Content-Type")
+
+	if contentType != "application/json" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var metrics []models.Metric
+	body, err := io.ReadAll(r.Body)
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if err = json.Unmarshal(body, &metrics); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	savedMetrics, saveError := t.keeper.SaveBatch(metrics)
+
+	if saveError != nil {
+		w.WriteHeader(saveError.Code)
+		return
+	}
+
+	response, err := json.Marshal(savedMetrics)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -102,7 +142,7 @@ func (t transportServer) GetMetricOld(w http.ResponseWriter, r *http.Request) {
 		MType: mType,
 	}
 
-	foundMetric, readError := t.reader.Read(currentMetric.ID, currentMetric.MType)
+	foundMetric, readError := t.keeper.Read(currentMetric.ID, currentMetric.MType)
 
 	if readError != nil {
 		w.WriteHeader(readError.Code)
@@ -136,7 +176,7 @@ func (t transportServer) GetMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	foundMetric, readError := t.reader.Read(currentMetric.ID, currentMetric.MType)
+	foundMetric, readError := t.keeper.Read(currentMetric.ID, currentMetric.MType)
 
 	if readError != nil {
 		w.WriteHeader(readError.Code)
@@ -168,7 +208,7 @@ func (t transportServer) GetMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metrics := t.reader.ReadAll()
+	metrics := t.keeper.ReadAll()
 	response, err := json.Marshal(metrics)
 
 	if err != nil {
@@ -184,7 +224,7 @@ func (t transportServer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
 	pageData := PageData{
 		Title:   "Metrics",
 		Header:  "Metrics list: ",
-		Metrics: t.reader.ReadAll(),
+		Metrics: t.keeper.ReadAll(),
 	}
 
 	page, err := template.New("webpage").
@@ -221,11 +261,34 @@ func (t transportServer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 }
 
-func NewServer(saver Saver, reader Reader, router *chi.Mux, logger *zap.SugaredLogger) *transportServer {
+func (t transportServer) CheckDB(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+
+	defer cancel()
+
+	done := make(chan bool)
+
+	go func() {
+		done <- t.keeper.Check()
+	}()
+
+	select {
+	case success := <-done:
+		if success {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		w.WriteHeader(http.StatusInternalServerError)
+	case <-ctx.Done():
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+}
+
+func NewServer(keeper Keeper, router *chi.Mux, logger *zap.SugaredLogger) *transportServer {
 	transportServer := transportServer{
 		Router: router,
-		reader: reader,
-		saver:  saver,
+		keeper: keeper,
 	}
 
 	router.Use(middleware.WithLogging(logger))
@@ -233,10 +296,12 @@ func NewServer(saver Saver, reader Reader, router *chi.Mux, logger *zap.SugaredL
 	router.Use(middleware.WithEncoding)
 
 	router.Get("/", http.HandlerFunc(transportServer.GetMetrics))
+	router.Get("/ping", http.HandlerFunc(transportServer.CheckDB))
 	router.Post("/value/", http.HandlerFunc(transportServer.GetMetric))
 	router.Get("/value/{metricType}/{metricName}", http.HandlerFunc(transportServer.GetMetricOld))
 	router.Post("/update/", http.HandlerFunc(transportServer.UpdateMetric))
 	router.Post("/update/{metricType}/{metricName}/{metricValue}", http.HandlerFunc(transportServer.UpdateMetricOld))
+	router.Post("/updates/", http.HandlerFunc(transportServer.UpdateMetrics))
 
 	return &transportServer
 }
@@ -244,6 +309,8 @@ func NewServer(saver Saver, reader Reader, router *chi.Mux, logger *zap.SugaredL
 type transportClient struct{}
 
 func (t transportClient) SendMetric(host, metricName, metricType, metricValue string) {
+	const maxRetries = 3
+
 	url := fmt.Sprintf("http://%s/update/%s/%s/%s", host, metricType, metricName, metricValue)
 	//url := fmt.Sprintf("http://%s/update", host)
 
@@ -285,14 +352,23 @@ func (t transportClient) SendMetric(host, metricName, metricType, metricValue st
 		return
 	}
 
-	_, err = client.R().
-		SetHeader("Content-Type", "application/json").
-		SetBody(body).
-		Post(url)
+	for retriesCount := 0; retriesCount < maxRetries; retriesCount++ {
+		resp, err := client.R().
+			SetHeader("Content-Type", "application/json").
+			SetBody(body).
+			Post(url)
 
-	if err != nil {
-		fmt.Printf("ERROR: %s\n", err)
-		return
+		if err != nil {
+			if errors.IsClientRetriable(resp.StatusCode()) {
+				sleepDuration := retriesCount*2 + 1
+
+				fmt.Printf("Error. Attempt: %d/%d Retry in %ds.\n", retriesCount+1, maxRetries, sleepDuration)
+				time.Sleep(time.Second * time.Duration(sleepDuration))
+				continue
+			}
+
+			return
+		}
 	}
 }
 

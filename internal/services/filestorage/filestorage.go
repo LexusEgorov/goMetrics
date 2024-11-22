@@ -9,16 +9,43 @@ import (
 	"time"
 
 	"github.com/LexusEgorov/goMetrics/internal/dohsimpson"
+	"github.com/LexusEgorov/goMetrics/internal/keeper"
 	"github.com/LexusEgorov/goMetrics/internal/models"
-	"github.com/LexusEgorov/goMetrics/internal/services/saver"
+	"github.com/LexusEgorov/goMetrics/internal/services/storage"
 )
 
-type FileWriter struct {
-	path string
-	file *os.File
+type fileStorage struct {
+	path     string
+	file     *os.File
+	interval int
+	storage  keeper.Storager
 }
 
-func (f FileWriter) Save(metrics map[string]models.Metric) {
+func (fs fileStorage) MassSave(metrics []models.Metric) ([]models.Metric, error) {
+	savedMetrics := make([]models.Metric, len(metrics))
+
+	for i, metric := range metrics {
+		switch metric.MType {
+		case "gauge":
+			fs.storage.AddGauge(metric.ID, *metric.Value)
+			savedMetrics[i] = metric
+		case "counter":
+			oldValue, _ := fs.storage.GetCounter(metric.ID)
+
+			fs.storage.AddCounter(metric.ID, *metric.Delta)
+
+			newValue := *metric.Delta + oldValue
+
+			metric.Delta = &newValue
+			savedMetrics[i] = metric
+		}
+	}
+
+	fs.save(fs.storage.GetAll())
+	return savedMetrics, nil
+}
+
+func (fs fileStorage) save(metrics map[string]models.Metric) {
 	jsonedMetrics, err := json.Marshal(metrics)
 
 	if err != nil {
@@ -26,51 +53,28 @@ func (f FileWriter) Save(metrics map[string]models.Metric) {
 		return
 	}
 
-	if err = f.file.Truncate(0); err != nil {
+	if err = fs.file.Truncate(0); err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	if _, err = f.file.Seek(0, 0); err != nil {
+	if _, err = fs.file.Seek(0, 0); err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	f.file.Write(jsonedMetrics)
+	fs.file.Write(jsonedMetrics)
 }
 
-func (f FileWriter) RunSave(storage saver.Storager, interval int) {
+func (fs fileStorage) runSave(interval int) {
 	for {
-		f.Save(storage.GetAll())
+		fs.save(fs.storage.GetAll())
 		time.Sleep(time.Duration(interval) * time.Second)
 	}
 }
 
-func (f FileWriter) Close() {
-	defer f.file.Close()
-}
-
-func NewFileWriter(filepath string) saver.FileWriter {
-	file, err := os.OpenFile(filepath, os.O_RDWR|os.O_CREATE, 0666)
-
-	if err != nil {
-		dohsimpson.NewDoh(0, err.Error())
-		return nil
-	}
-
-	return &FileWriter{
-		path: filepath,
-		file: file,
-	}
-}
-
-type fileReader struct {
-	path string
-	file *os.File
-}
-
-func (f fileReader) Read() map[string]models.Metric {
-	reader := bufio.NewReader(f.file)
+func (fs fileStorage) read() map[string]models.Metric {
+	reader := bufio.NewReader(fs.file)
 	metrics, err := io.ReadAll(reader)
 
 	if err != nil {
@@ -94,19 +98,69 @@ func (f fileReader) Read() map[string]models.Metric {
 	return parsedMetrics
 }
 
-func (f fileReader) Close() {
-	defer f.file.Close()
+func (fs fileStorage) Close() {
+	fs.file.Close()
 }
 
-func NewFileReader(filepath string) *fileReader {
-	file, err := os.OpenFile(filepath, os.O_RDONLY|os.O_CREATE, 0666)
+func (fs fileStorage) AddGauge(key string, value float64) {
+	fs.storage.AddGauge(key, value)
+
+	if fs.interval == 0 {
+		fs.save(fs.storage.GetAll())
+	}
+}
+
+func (fs fileStorage) AddCounter(key string, value int64) {
+	fs.storage.AddCounter(key, value)
+
+	if fs.interval == 0 {
+		fs.save(fs.storage.GetAll())
+	}
+}
+
+func (fs fileStorage) GetGauge(key string) (float64, bool) {
+	return fs.storage.GetGauge(key)
+}
+
+func (fs fileStorage) GetCounter(key string) (int64, bool) {
+	return fs.storage.GetCounter(key)
+}
+
+func (fs fileStorage) GetAll() map[string]models.Metric {
+	return fs.storage.GetAll()
+}
+
+func (fs fileStorage) Check() bool {
+	return true
+}
+
+func NewFileStorage(filepath string, saveInterval int, isRestore bool) keeper.Storager {
+	file, err := os.OpenFile(filepath, os.O_RDWR|os.O_CREATE, 0666)
 
 	if err != nil {
+		dohsimpson.NewDoh(0, err.Error())
 		return nil
 	}
 
-	return &fileReader{
-		path: filepath,
-		file: file,
+	fileStorage := fileStorage{
+		path:     filepath,
+		file:     file,
+		interval: saveInterval,
 	}
+
+	initMetrics := make(map[string]models.Metric)
+
+	if isRestore {
+		initMetrics = fileStorage.read()
+	}
+
+	storage := storage.NewStorage(initMetrics)
+
+	fileStorage.storage = storage
+
+	if saveInterval != 0 {
+		go fileStorage.runSave(saveInterval)
+	}
+
+	return fileStorage
 }

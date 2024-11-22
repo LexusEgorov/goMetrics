@@ -44,14 +44,12 @@ var gaugeMetrics = [...]string{
 
 type metricAgent struct {
 	config    config.Agent
-	saver     transport.Saver
-	reader    transport.Reader
+	keeper    transport.Keeper
 	pollCount int64
 }
 
 func (agent *metricAgent) collectMetrics() {
 	for {
-		fmt.Println("Collect started")
 		var memStats runtime.MemStats
 		runtime.ReadMemStats(&memStats)
 
@@ -89,23 +87,22 @@ func (agent *metricAgent) collectMetrics() {
 				continue
 			}
 
-			agent.saver.Save(currentMetric)
+			agent.keeper.Save(currentMetric)
 		}
 
-		agent.saver.Save(models.Metric{
+		agent.keeper.Save(models.Metric{
 			ID:    "PollCount",
 			MType: "counter",
 			Delta: &agent.pollCount,
 		})
 
 		randomValue := rand.Float64()
-		agent.saver.Save(models.Metric{
+		agent.keeper.Save(models.Metric{
 			ID:    "RandomValue",
 			MType: "gauge",
 			Value: &randomValue,
 		})
 
-		fmt.Println("Collect finished")
 		time.Sleep(time.Duration(agent.config.PollInterval) * time.Second)
 	}
 }
@@ -116,7 +113,7 @@ func (agent metricAgent) sendMetrics() {
 	for {
 		time.Sleep(time.Duration(agent.config.ReportInterval) * time.Second)
 		fmt.Println("Sending started")
-		for k, metric := range agent.reader.ReadAll() {
+		for k, metric := range agent.keeper.ReadAll() {
 			switch metric.MType {
 			case "gauge":
 				transportClient.SendMetric(agent.config.Host, string(k), metric.MType, fmt.Sprint(*metric.Value))
@@ -144,11 +141,10 @@ func (agent metricAgent) Start(stopChan chan struct{}) {
 	fmt.Println("Agent finished")
 }
 
-func NewAgent(init config.Agent, saver transport.Saver, reader transport.Reader) *metricAgent {
+func NewAgent(config config.Agent, keeper transport.Keeper) *metricAgent {
 	return &metricAgent{
-		config:    init,
-		saver:     saver,
-		reader:    reader,
+		config:    config,
+		keeper:    keeper,
 		pollCount: 0,
 	}
 }
