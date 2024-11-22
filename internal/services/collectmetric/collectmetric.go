@@ -141,9 +141,9 @@ func (agent metricAgent) Start(stopChan chan struct{}) {
 	fmt.Println("Agent finished")
 }
 
-func NewAgent(init config.Agent, keeper transport.Keeper) *metricAgent {
+func NewAgent(config config.Agent, keeper transport.Keeper) *metricAgent {
 	return &metricAgent{
-		config:    init,
+		config:    config,
 		keeper:    keeper,
 		pollCount: 0,
 	}

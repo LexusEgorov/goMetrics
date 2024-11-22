@@ -114,7 +114,7 @@ func (k keeper) Save(m models.Metric) (*models.Metric, *dohsimpson.Error) {
 	return &m, nil
 }
 
-func (k keeper) MassSave(m []models.Metric) ([]models.Metric, *dohsimpson.Error) {
+func (k keeper) SaveBatch(m []models.Metric) ([]models.Metric, *dohsimpson.Error) {
 	savedMetrics, err := k.storage.MassSave(m)
 
 	if err != nil {

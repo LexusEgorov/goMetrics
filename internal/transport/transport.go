@@ -24,7 +24,7 @@ import (
 type Keeper interface {
 	SaveOld(mName, mType, value string) *dohsimpson.Error
 	Save(m models.Metric) (*models.Metric, *dohsimpson.Error)
-	MassSave(m []models.Metric) ([]models.Metric, *dohsimpson.Error)
+	SaveBatch(m []models.Metric) ([]models.Metric, *dohsimpson.Error)
 	Read(key, mType string) (*models.Metric, *dohsimpson.Error)
 	ReadAll() map[string]models.Metric
 	Check() bool
@@ -115,7 +115,7 @@ func (t transportServer) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	savedMetrics, saveError := t.keeper.MassSave(metrics)
+	savedMetrics, saveError := t.keeper.SaveBatch(metrics)
 
 	if saveError != nil {
 		w.WriteHeader(saveError.Code)

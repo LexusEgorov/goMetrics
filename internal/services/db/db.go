@@ -56,17 +56,17 @@ func (d *DB) connect(host string) {
 	}
 }
 
-func (d DB) Close() {
+func (d *DB) Close() {
 	if d.db != nil {
 		d.db.Close()
 	}
 }
 
-func (d DB) Check() bool {
+func (d *DB) Check() bool {
 	return d.db != nil
 }
 
-func (d DB) MassSave(metrics []models.Metric) ([]models.Metric, error) {
+func (d *DB) MassSave(metrics []models.Metric) ([]models.Metric, error) {
 	savedMetrics := make([]string, len(metrics))
 
 	tx, err := d.db.Begin()
@@ -149,7 +149,7 @@ func (d DB) MassSave(metrics []models.Metric) ([]models.Metric, error) {
 	return resultMetrics, nil
 }
 
-func (d DB) AddCounter(key string, value int64) {
+func (d *DB) AddCounter(key string, value int64) {
 	query := `
 		INSERT INTO metrics (id, mtype, delta) 
 		VALUES ($1, 'counter', $2)
@@ -163,7 +163,7 @@ func (d DB) AddCounter(key string, value int64) {
 	}
 }
 
-func (d DB) AddGauge(key string, value float64) {
+func (d *DB) AddGauge(key string, value float64) {
 	query := `
 	INSERT INTO metrics (id, mtype, value) 
 	VALUES ($1, 'gauge', $2)
@@ -177,7 +177,7 @@ func (d DB) AddGauge(key string, value float64) {
 	}
 }
 
-func (d DB) GetAll() map[string]models.Metric {
+func (d *DB) GetAll() map[string]models.Metric {
 	metrics := make(map[string]models.Metric)
 	query := `SELECT * FROM metrics`
 
@@ -212,7 +212,7 @@ func (d DB) GetAll() map[string]models.Metric {
 	return metrics
 }
 
-func (d DB) getMetric(key string) (*models.Metric, bool) {
+func (d *DB) getMetric(key string) (*models.Metric, bool) {
 	query := `SELECT * FROM metrics WHERE id = $1`
 
 	row := d.db.QueryRow(query, key)
@@ -228,7 +228,7 @@ func (d DB) getMetric(key string) (*models.Metric, bool) {
 	return &m, true
 }
 
-func (d DB) GetCounter(key string) (int64, bool) {
+func (d *DB) GetCounter(key string) (int64, bool) {
 	metric, isFound := d.getMetric(key)
 
 	if !isFound {
@@ -238,7 +238,7 @@ func (d DB) GetCounter(key string) (int64, bool) {
 	return int64(*metric.Delta), true
 }
 
-func (d DB) GetGauge(key string) (float64, bool) {
+func (d *DB) GetGauge(key string) (float64, bool) {
 	metric, isFound := d.getMetric(key)
 
 	if !isFound {
@@ -253,5 +253,5 @@ func NewDB(host string) keeper.Storager {
 
 	db.connect(host)
 
-	return db
+	return &db
 }
