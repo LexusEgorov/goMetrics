@@ -27,7 +27,13 @@ func (s sign) Verify(data []byte, sign string) bool {
 		return true
 	}
 
-	return s.Sign(data) == sign
+	etalonSign := s.Sign(data)
+
+	if etalonSign == "" {
+		return true
+	}
+
+	return etalonSign == sign
 }
 
 func NewSign(key string) middleware.Signer {
