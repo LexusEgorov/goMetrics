@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -145,6 +146,9 @@ func WithVerifying(signer Signer) func(http.Handler) http.Handler {
 				}
 
 				if !signer.Verify(body, signHeader) {
+					sign := signer.Sign(body)
+
+					fmt.Printf("BadSign: %s | Need: %s\n", signHeader, sign)
 					w.WriteHeader(http.StatusBadRequest)
 					return
 				}
