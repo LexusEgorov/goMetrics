@@ -106,6 +106,7 @@ func WithEncoding(next http.Handler) http.Handler {
 		next.ServeHTTP(rw, r)
 
 		data := rw.Body.Bytes()
+
 		var encodeErr *dohsimpson.Error
 
 		switch encodingHeader {
@@ -147,6 +148,8 @@ func WithVerifying(signer Signer) func(http.Handler) http.Handler {
 					w.WriteHeader(http.StatusBadRequest)
 					return
 				}
+
+				r.Body = io.NopCloser(bytes.NewBuffer(body))
 			}
 
 			next.ServeHTTP(w, r)
@@ -164,18 +167,12 @@ func WithSigning(signer Signer) func(http.Handler) http.Handler {
 
 			next.ServeHTTP(rw, r)
 
-			body, err := io.ReadAll(r.Body)
+			data := rw.Body.Bytes()
+			sign := signer.Sign(data)
 
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
+			r.Header.Add("HashSHA256", sign)
 
-			sign := signer.Sign(body)
-
-			if sign != "" {
-				r.Header.Add("HashSHA256", sign)
-			}
+			w.Write(data)
 		})
 	}
 }
