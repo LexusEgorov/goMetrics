@@ -18,6 +18,11 @@ type responseWriter struct {
 	Body *bytes.Buffer
 }
 
+type Signer interface {
+	Sign([]byte) string
+	Verify([]byte, string) bool
+}
+
 func (rw responseWriter) Write(b []byte) (int, error) {
 	return rw.Body.Write(b)
 }
@@ -123,4 +128,54 @@ func WithEncoding(next http.Handler) http.Handler {
 
 		w.Write(data)
 	})
+}
+
+func WithVerifying(signer Signer) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			signHeader := r.Header.Get("HashSHA256")
+
+			if signHeader != "" && r.Method != http.MethodGet {
+				body, err := io.ReadAll(r.Body)
+
+				if err != nil {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+
+				if !signer.Verify(body, signHeader) {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func WithSigning(signer Signer) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			rw := &responseWriter{
+				ResponseWriter: w,
+				Body:           new(bytes.Buffer),
+			}
+
+			next.ServeHTTP(rw, r)
+
+			body, err := io.ReadAll(r.Body)
+
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			sign := signer.Sign(body)
+
+			if sign != "" {
+				r.Header.Add("HashSHA256", sign)
+			}
+		})
+	}
 }

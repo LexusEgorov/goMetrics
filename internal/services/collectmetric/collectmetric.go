@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/LexusEgorov/goMetrics/internal/config"
+	"github.com/LexusEgorov/goMetrics/internal/middleware"
 	"github.com/LexusEgorov/goMetrics/internal/models"
 	"github.com/LexusEgorov/goMetrics/internal/transport"
 )
@@ -45,6 +46,7 @@ var gaugeMetrics = [...]string{
 type metricAgent struct {
 	config    config.Agent
 	keeper    transport.Keeper
+	signer    middleware.Signer
 	pollCount int64
 }
 
@@ -116,9 +118,9 @@ func (agent metricAgent) sendMetrics() {
 		for k, metric := range agent.keeper.ReadAll() {
 			switch metric.MType {
 			case "gauge":
-				transportClient.SendMetric(agent.config.Host, string(k), metric.MType, fmt.Sprint(*metric.Value))
+				transportClient.SendMetric(agent.config.Host, string(k), metric.MType, fmt.Sprint(*metric.Value), agent.signer)
 			case "counter":
-				transportClient.SendMetric(agent.config.Host, string(k), metric.MType, fmt.Sprint(*metric.Delta))
+				transportClient.SendMetric(agent.config.Host, string(k), metric.MType, fmt.Sprint(*metric.Delta), agent.signer)
 			default:
 				fmt.Printf("Unknown metric's type: %T\n", metric.MType)
 			}
@@ -141,10 +143,11 @@ func (agent metricAgent) Start(stopChan chan struct{}) {
 	fmt.Println("Agent finished")
 }
 
-func NewAgent(config config.Agent, keeper transport.Keeper) *metricAgent {
+func NewAgent(config config.Agent, keeper transport.Keeper, signer middleware.Signer) *metricAgent {
 	return &metricAgent{
 		config:    config,
 		keeper:    keeper,
 		pollCount: 0,
+		signer:    signer,
 	}
 }
