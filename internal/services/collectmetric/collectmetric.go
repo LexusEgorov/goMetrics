@@ -135,6 +135,7 @@ func (agent metricAgent) Start(stopChan chan struct{}) {
 	fmt.Printf("Host: %s\n", agent.config.Host)
 	fmt.Printf("ReportInterval: %d\n", agent.config.ReportInterval)
 	fmt.Printf("PollInterval: %d\n", agent.config.PollInterval)
+	fmt.Printf("Key: %s\n", agent.config.Key)
 
 	go agent.collectMetrics()
 	go agent.sendMetrics()
