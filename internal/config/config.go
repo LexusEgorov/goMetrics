@@ -103,6 +103,7 @@ type Agent struct {
 	ReportInterval int
 	PollInterval   int
 	Key            string
+	RateLimit      int
 }
 
 func parseEnv(variable string) int {
@@ -120,17 +121,20 @@ func NewAgent() Agent {
 	var key string
 	var reportInterval int
 	var pollInterval int
+	var rateLimit int
 
 	flag.StringVar(&host, "a", "localhost:8080", "address and port for reporting")
 	flag.StringVar(&key, "k", "", "secret key")
 	flag.IntVar(&reportInterval, "r", 10, "report interval")
 	flag.IntVar(&pollInterval, "p", 2, "poll interval")
+	flag.IntVar(&rateLimit, "l", 1, "rate limit")
 	flag.Parse()
 
 	envHost := os.Getenv("ADDRESS")
 	envReportInterval := os.Getenv("REPORT_INTERVAL")
 	envPollInterval := os.Getenv("POLL_INTERVAL")
 	envKey := os.Getenv("KEY")
+	envLimit := os.Getenv("RATE_LIMIT")
 
 	if envKey != "" {
 		key = envKey
@@ -148,10 +152,15 @@ func NewAgent() Agent {
 		pollInterval = parseEnv(envPollInterval)
 	}
 
+	if envLimit != "" {
+		rateLimit = parseEnv(envLimit)
+	}
+
 	return Agent{
 		Host:           host,
 		ReportInterval: reportInterval,
 		PollInterval:   pollInterval,
 		Key:            key,
+		RateLimit:      rateLimit,
 	}
 }

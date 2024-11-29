@@ -5,6 +5,7 @@ import (
 	"math/rand/v2"
 	"reflect"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/LexusEgorov/goMetrics/internal/config"
@@ -44,10 +45,11 @@ var gaugeMetrics = [...]string{
 }
 
 type metricAgent struct {
-	config    config.Agent
-	keeper    transport.Keeper
-	signer    middleware.Signer
-	pollCount int64
+	config     config.Agent
+	signer     middleware.Signer
+	pollCount  int64
+	metricChan chan models.Metric
+	wg         sync.WaitGroup
 }
 
 func (agent *metricAgent) collectMetrics() {
@@ -89,48 +91,61 @@ func (agent *metricAgent) collectMetrics() {
 				continue
 			}
 
-			agent.keeper.Save(currentMetric)
+			agent.metricChan <- currentMetric
 		}
 
-		agent.keeper.Save(models.Metric{
+		agent.metricChan <- models.Metric{
 			ID:    "PollCount",
 			MType: "counter",
 			Delta: &agent.pollCount,
-		})
+		}
 
 		randomValue := rand.Float64()
-		agent.keeper.Save(models.Metric{
+
+		agent.metricChan <- models.Metric{
 			ID:    "RandomValue",
 			MType: "gauge",
 			Value: &randomValue,
-		})
+		}
 
 		time.Sleep(time.Duration(agent.config.PollInterval) * time.Second)
 	}
 }
 
-func (agent metricAgent) sendMetrics() {
+func (agent *metricAgent) sendMetrics() {
 	transportClient := transport.NewClient()
+	semaphore := make(chan struct{}, agent.config.RateLimit)
 
 	for {
 		time.Sleep(time.Duration(agent.config.ReportInterval) * time.Second)
 		fmt.Println("Sending started")
-		for k, metric := range agent.keeper.ReadAll() {
-			switch metric.MType {
-			case "gauge":
-				transportClient.SendMetric(agent.config.Host, string(k), metric.MType, fmt.Sprint(*metric.Value), agent.signer)
-			case "counter":
-				transportClient.SendMetric(agent.config.Host, string(k), metric.MType, fmt.Sprint(*metric.Delta), agent.signer)
-			default:
-				fmt.Printf("Unknown metric's type: %T\n", metric.MType)
-			}
+		for metric := range agent.metricChan {
+			semaphore <- struct{}{}
+			agent.wg.Add(1)
+
+			go func(metric models.Metric) {
+				defer func() {
+					<-semaphore
+					agent.wg.Done()
+				}()
+
+				switch metric.MType {
+				case "gauge":
+					transportClient.SendMetric(agent.config.Host, string(metric.ID), metric.MType, fmt.Sprint(*metric.Value), agent.signer)
+				case "counter":
+					transportClient.SendMetric(agent.config.Host, string(metric.ID), metric.MType, fmt.Sprint(*metric.Delta), agent.signer)
+				default:
+					fmt.Printf("Unknown metric's type: %T\n", metric.MType)
+				}
+			}(metric)
 		}
 
+		agent.wg.Wait()
 		fmt.Println("Sending finished")
 	}
 }
 
-func (agent metricAgent) Start(stopChan chan struct{}) {
+func (agent *metricAgent) Start(stopChan chan struct{}) {
 	fmt.Println("Agent started")
 	fmt.Printf("Host: %s\n", agent.config.Host)
 	fmt.Printf("ReportInterval: %d\n", agent.config.ReportInterval)
@@ -141,13 +156,14 @@ func (agent metricAgent) Start(stopChan chan struct{}) {
 	go agent.sendMetrics()
 
 	<-stopChan
+	close(agent.metricChan)
+	agent.wg.Wait()
 	fmt.Println("Agent finished")
 }
 
-func NewAgent(config config.Agent, keeper transport.Keeper, signer middleware.Signer) *metricAgent {
+func NewAgent(config config.Agent, signer middleware.Signer) *metricAgent {
 	return &metricAgent{
 		config:    config,
-		keeper:    keeper,
 		pollCount: 0,
 		signer:    signer,
 	}

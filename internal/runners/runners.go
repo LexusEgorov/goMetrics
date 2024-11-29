@@ -71,11 +71,9 @@ func NewServer() *serverRunner {
 type agentRunner struct{}
 
 func (a agentRunner) Run(config configPkg.Agent) {
-	storage := storagePkg.NewStorage(make(map[string]models.Metric))
-	keeper := keeper.NewKeeper(storage)
 	signer := sign.NewSign(config.Key)
 
-	var agent = collectmetric.NewAgent(config, keeper, signer)
+	var agent = collectmetric.NewAgent(config, signer)
 
 	stopChan := make(chan struct{})
 	signalChan := make(chan os.Signal, 1)
