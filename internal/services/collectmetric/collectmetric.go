@@ -92,6 +92,7 @@ func (agent *metricAgent) collectMetrics() {
 			}
 
 			agent.metricChan <- currentMetric
+			fmt.Println(agent.metricChan)
 		}
 
 		agent.metricChan <- models.Metric{
@@ -119,6 +120,7 @@ func (agent *metricAgent) sendMetrics() {
 	for {
 		time.Sleep(time.Duration(agent.config.ReportInterval) * time.Second)
 		fmt.Println("Sending started")
+
 		for metric := range agent.metricChan {
 			semaphore <- struct{}{}
 			agent.wg.Add(1)
@@ -150,6 +152,7 @@ func (agent *metricAgent) Start(stopChan chan struct{}) {
 	fmt.Printf("Host: %s\n", agent.config.Host)
 	fmt.Printf("ReportInterval: %d\n", agent.config.ReportInterval)
 	fmt.Printf("PollInterval: %d\n", agent.config.PollInterval)
+	fmt.Printf("RateLimit: %d\n", agent.config.RateLimit)
 	fmt.Printf("Key: %s\n", agent.config.Key)
 
 	go agent.collectMetrics()
