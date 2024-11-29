@@ -8,6 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/mem"
+
 	"github.com/LexusEgorov/goMetrics/internal/config"
 	"github.com/LexusEgorov/goMetrics/internal/middleware"
 	"github.com/LexusEgorov/goMetrics/internal/models"
@@ -92,7 +95,6 @@ func (agent *metricAgent) collectMetrics() {
 			}
 
 			agent.metricChan <- currentMetric
-			fmt.Println(agent.metricChan)
 		}
 
 		agent.metricChan <- models.Metric{
@@ -147,6 +149,37 @@ func (agent *metricAgent) sendMetrics() {
 	}
 }
 
+func (agent *metricAgent) collectAdditionals() {
+	for {
+		v, _ := mem.VirtualMemory()
+		c, _ := cpu.Counts(false)
+
+		cpuCount := float64(c)
+
+		agent.metricChan <- models.Metric{
+			ID:    "CPUutilization1",
+			MType: "gauge",
+			Value: &cpuCount,
+		}
+
+		total := float64(v.Total)
+		agent.metricChan <- models.Metric{
+			ID:    "TotalMemory",
+			MType: "gauge",
+			Value: &total,
+		}
+
+		free := float64(v.Free)
+		agent.metricChan <- models.Metric{
+			ID:    "FreeMemory",
+			MType: "gauge",
+			Value: &free,
+		}
+
+		time.Sleep(time.Duration(agent.config.PollInterval) * time.Second)
+	}
+}
+
 func (agent *metricAgent) Start(stopChan chan struct{}) {
 	fmt.Println("Agent started")
 	fmt.Printf("Host: %s\n", agent.config.Host)
@@ -157,6 +190,7 @@ func (agent *metricAgent) Start(stopChan chan struct{}) {
 
 	go agent.collectMetrics()
 	go agent.sendMetrics()
+	go agent.collectAdditionals()
 
 	<-stopChan
 	close(agent.metricChan)
@@ -166,8 +200,9 @@ func (agent *metricAgent) Start(stopChan chan struct{}) {
 
 func NewAgent(config config.Agent, signer middleware.Signer) *metricAgent {
 	return &metricAgent{
-		config:    config,
-		pollCount: 0,
-		signer:    signer,
+		config:     config,
+		pollCount:  0,
+		signer:     signer,
+		metricChan: make(chan models.Metric, 100),
 	}
 }
