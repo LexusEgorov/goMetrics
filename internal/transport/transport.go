@@ -285,15 +285,18 @@ func (t transportServer) CheckDB(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func NewServer(keeper Keeper, router *chi.Mux, logger *zap.SugaredLogger) *transportServer {
+func NewServer(keeper Keeper, router *chi.Mux, logger *zap.SugaredLogger, signer middleware.Signer) *transportServer {
 	transportServer := transportServer{
 		Router: router,
 		keeper: keeper,
 	}
 
 	router.Use(middleware.WithLogging(logger))
+
 	router.Use(middleware.WithDecoding)
+	router.Use(middleware.WithVerifying(signer))
 	router.Use(middleware.WithEncoding)
+	router.Use(middleware.WithSigning(signer))
 
 	router.Get("/", http.HandlerFunc(transportServer.GetMetrics))
 	router.Get("/ping", http.HandlerFunc(transportServer.CheckDB))
@@ -308,7 +311,7 @@ func NewServer(keeper Keeper, router *chi.Mux, logger *zap.SugaredLogger) *trans
 
 type transportClient struct{}
 
-func (t transportClient) SendMetric(host, metricName, metricType, metricValue string) {
+func (t transportClient) SendMetric(host, metricName, metricType, metricValue string, signer middleware.Signer) {
 	const maxRetries = 3
 
 	url := fmt.Sprintf("http://%s/update/%s/%s/%s", host, metricType, metricName, metricValue)
@@ -347,6 +350,8 @@ func (t transportClient) SendMetric(host, metricName, metricType, metricValue st
 
 	body, err := json.Marshal(currentMetric)
 
+	sign := signer.Sign(body)
+
 	if err != nil {
 		fmt.Printf("ERROR: %s\n", err)
 		return
@@ -355,6 +360,7 @@ func (t transportClient) SendMetric(host, metricName, metricType, metricValue st
 	for retriesCount := 0; retriesCount < maxRetries; retriesCount++ {
 		resp, err := client.R().
 			SetHeader("Content-Type", "application/json").
+			SetHeader("HashSHA256", sign).
 			SetBody(body).
 			Post(url)
 

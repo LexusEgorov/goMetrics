@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -16,6 +17,11 @@ import (
 type responseWriter struct {
 	http.ResponseWriter
 	Body *bytes.Buffer
+}
+
+type Signer interface {
+	Sign([]byte) string
+	Verify([]byte, string) bool
 }
 
 func (rw responseWriter) Write(b []byte) (int, error) {
@@ -101,6 +107,7 @@ func WithEncoding(next http.Handler) http.Handler {
 		next.ServeHTTP(rw, r)
 
 		data := rw.Body.Bytes()
+
 		var encodeErr *dohsimpson.Error
 
 		switch encodingHeader {
@@ -123,4 +130,53 @@ func WithEncoding(next http.Handler) http.Handler {
 
 		w.Write(data)
 	})
+}
+
+func WithVerifying(signer Signer) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			signHeader := r.Header.Get("HashSHA256")
+
+			if signHeader != "" && r.Method != http.MethodGet {
+				body, err := io.ReadAll(r.Body)
+
+				if err != nil {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+
+				if !signer.Verify(body, signHeader) {
+					sign := signer.Sign(body)
+
+					fmt.Printf("BadSign: %s | Need: %s\n", signHeader, sign)
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+
+				r.Body = io.NopCloser(bytes.NewBuffer(body))
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func WithSigning(signer Signer) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			rw := &responseWriter{
+				ResponseWriter: w,
+				Body:           new(bytes.Buffer),
+			}
+
+			next.ServeHTTP(rw, r)
+
+			data := rw.Body.Bytes()
+			sign := signer.Sign(data)
+
+			r.Header.Add("HashSHA256", sign)
+
+			w.Write(data)
+		})
+	}
 }

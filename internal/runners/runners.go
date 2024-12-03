@@ -16,6 +16,7 @@ import (
 	"github.com/LexusEgorov/goMetrics/internal/services/collectmetric"
 	"github.com/LexusEgorov/goMetrics/internal/services/db"
 	"github.com/LexusEgorov/goMetrics/internal/services/filestorage"
+	"github.com/LexusEgorov/goMetrics/internal/services/sign"
 	storagePkg "github.com/LexusEgorov/goMetrics/internal/services/storage"
 	"github.com/LexusEgorov/goMetrics/internal/transport"
 )
@@ -48,13 +49,16 @@ func (s serverRunner) Run(config configPkg.Server) error {
 	defer storage.Close()
 
 	keeper := keeper.NewKeeper(storage)
-	transportServer := transport.NewServer(keeper, router, sugar)
+	signer := sign.NewSign(config.Key)
+
+	transportServer := transport.NewServer(keeper, router, sugar, signer)
 
 	fmt.Println("Running server on", config.Host)
 	fmt.Println("Backup interval: ", config.StoreInterval)
 	fmt.Println("Backup file: ", config.StorePath)
 	fmt.Println("Backup readed: ", config.Restore)
 	fmt.Println("DB host: ", config.DB)
+	fmt.Println("KEY: ", config.Key)
 	fmt.Println("Storage mode: ", config.Mode)
 
 	return http.ListenAndServe(config.Host, transportServer.Router)
@@ -67,10 +71,9 @@ func NewServer() *serverRunner {
 type agentRunner struct{}
 
 func (a agentRunner) Run(config configPkg.Agent) {
-	storage := storagePkg.NewStorage(make(map[string]models.Metric))
-	keeper := keeper.NewKeeper(storage)
+	signer := sign.NewSign(config.Key)
 
-	var agent = collectmetric.NewAgent(config, keeper)
+	var agent = collectmetric.NewAgent(config, signer)
 
 	stopChan := make(chan struct{})
 	signalChan := make(chan os.Signal, 1)
