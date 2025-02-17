@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	debugMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
 
@@ -305,6 +306,8 @@ func NewServer(keeper Keeper, router *chi.Mux, logger *zap.SugaredLogger, signer
 	router.Post("/update/", http.HandlerFunc(transportServer.UpdateMetric))
 	router.Post("/update/{metricType}/{metricName}/{metricValue}", http.HandlerFunc(transportServer.UpdateMetricOld))
 	router.Post("/updates/", http.HandlerFunc(transportServer.UpdateMetrics))
+
+	router.Mount("/debug", debugMiddleware.Profiler())
 
 	return &transportServer
 }

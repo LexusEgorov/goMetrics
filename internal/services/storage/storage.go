@@ -1,6 +1,7 @@
 package storage
 
 import (
+	_ "net/http/pprof"
 	"sync"
 
 	"github.com/LexusEgorov/goMetrics/internal/keeper"
