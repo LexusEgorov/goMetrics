@@ -1,3 +1,4 @@
+// Пакет "хранитель". Работает с хранилищем.
 package keeper
 
 import (
@@ -10,6 +11,7 @@ import (
 	"github.com/LexusEgorov/goMetrics/internal/transport"
 )
 
+// Интерфейс "Хранилище" для работы с метриками.
 type Storager interface {
 	AddGauge(key string, value float64)
 	AddCounter(key string, value int64)
@@ -25,6 +27,7 @@ type keeper struct {
 	storage Storager
 }
 
+// Метод для получения метрики из хранилища.
 func (k keeper) Read(key, mType string) (*models.Metric, *dohsimpson.Error) {
 	currentMetric := models.Metric{
 		ID:    key,
@@ -55,10 +58,12 @@ func (k keeper) Read(key, mType string) (*models.Metric, *dohsimpson.Error) {
 	return &currentMetric, nil
 }
 
+// Метод для получения всех метрик из хранилища.
 func (k keeper) ReadAll() map[string]models.Metric {
 	return k.storage.GetAll()
 }
 
+// Метод для сохранения метрик старого типа.
 func (k keeper) SaveOld(mName, mType, mValue string) *dohsimpson.Error {
 	if mName == "" || mValue == "" {
 		return dohsimpson.NewDoh(http.StatusNotFound, "metric not found (empty data) (saver)")
@@ -88,6 +93,7 @@ func (k keeper) SaveOld(mName, mType, mValue string) *dohsimpson.Error {
 	return nil
 }
 
+// Метод для сохранения метрик нового типа.
 func (k keeper) Save(m models.Metric) (*models.Metric, *dohsimpson.Error) {
 	mName := m.ID
 	mType := m.MType
@@ -114,6 +120,7 @@ func (k keeper) Save(m models.Metric) (*models.Metric, *dohsimpson.Error) {
 	return &m, nil
 }
 
+// Метод для массового сохранения метрик.
 func (k keeper) SaveBatch(m []models.Metric) ([]models.Metric, *dohsimpson.Error) {
 	savedMetrics, err := k.storage.MassSave(m)
 
@@ -124,10 +131,12 @@ func (k keeper) SaveBatch(m []models.Metric) ([]models.Metric, *dohsimpson.Error
 	return savedMetrics, nil
 }
 
+// Метод для проверки работоспособности хранилища.
 func (k keeper) Check() bool {
 	return k.storage.Check()
 }
 
+// Конструктор. Подключает хранилище к "хранителю".
 func NewKeeper(storage Storager) transport.Keeper {
 	return keeper{
 		storage: storage,

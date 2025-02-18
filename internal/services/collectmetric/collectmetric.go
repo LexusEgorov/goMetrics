@@ -1,3 +1,4 @@
+// Пакет для сбора метрик.
 package collectmetric
 
 import (
@@ -180,6 +181,7 @@ func (agent *metricAgent) collectAdditionals() {
 	}
 }
 
+// Метод, который запускает сбор метрик.
 func (agent *metricAgent) Start(stopChan chan struct{}) {
 	fmt.Println("Agent started")
 	fmt.Printf("Host: %s\n", agent.config.Host)
@@ -198,6 +200,7 @@ func (agent *metricAgent) Start(stopChan chan struct{}) {
 	fmt.Println("Agent finished")
 }
 
+// Конструктор агента.
 func NewAgent(config config.Agent, signer middleware.Signer) *metricAgent {
 	return &metricAgent{
 		config:     config,

@@ -1,3 +1,4 @@
+// База данных. Один из вариантов хранилищ.
 package db
 
 import (
@@ -56,16 +57,19 @@ func (d *DB) connect(host string) {
 	}
 }
 
+// Закрывает соединение с базой данных.
 func (d *DB) Close() {
 	if d.db != nil {
 		d.db.Close()
 	}
 }
 
+// Проверка связи.
 func (d *DB) Check() bool {
 	return d.db != nil
 }
 
+// Метод для массового сохранения метрик.
 func (d *DB) MassSave(metrics []models.Metric) ([]models.Metric, error) {
 	savedMetrics := make([]string, len(metrics))
 
@@ -149,6 +153,7 @@ func (d *DB) MassSave(metrics []models.Metric) ([]models.Metric, error) {
 	return resultMetrics, nil
 }
 
+// Метод для добавления метрики типа "counter".
 func (d *DB) AddCounter(key string, value int64) {
 	query := `
 		INSERT INTO metrics (id, mtype, delta) 
@@ -163,6 +168,7 @@ func (d *DB) AddCounter(key string, value int64) {
 	}
 }
 
+// Метод для добавления метрики типа "gauge".
 func (d *DB) AddGauge(key string, value float64) {
 	query := `
 	INSERT INTO metrics (id, mtype, value) 
@@ -177,6 +183,7 @@ func (d *DB) AddGauge(key string, value float64) {
 	}
 }
 
+// Метод для получения всех метрик.
 func (d *DB) GetAll() map[string]models.Metric {
 	metrics := make(map[string]models.Metric)
 	query := `SELECT * FROM metrics`
@@ -212,6 +219,7 @@ func (d *DB) GetAll() map[string]models.Metric {
 	return metrics
 }
 
+// Метод для получения метрики по ключу.
 func (d *DB) getMetric(key string) (*models.Metric, bool) {
 	query := `SELECT * FROM metrics WHERE id = $1`
 
@@ -228,6 +236,7 @@ func (d *DB) getMetric(key string) (*models.Metric, bool) {
 	return &m, true
 }
 
+// Метод для получения значения метрики типа "counter" по ключу.
 func (d *DB) GetCounter(key string) (int64, bool) {
 	metric, isFound := d.getMetric(key)
 
@@ -238,6 +247,7 @@ func (d *DB) GetCounter(key string) (int64, bool) {
 	return int64(*metric.Delta), true
 }
 
+// Метод для получения значения метрики типа "gauge" по ключу.
 func (d *DB) GetGauge(key string) (float64, bool) {
 	metric, isFound := d.getMetric(key)
 
@@ -248,6 +258,7 @@ func (d *DB) GetGauge(key string) (float64, bool) {
 	return float64(*metric.Value), true
 }
 
+// Конструктор.
 func NewDB(host string) keeper.Storager {
 	db := DB{}
 

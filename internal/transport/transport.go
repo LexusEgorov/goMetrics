@@ -1,3 +1,4 @@
+// Пакет транспортного уровня. Отвечает за обработку http запросов сервером и отправку метрик агентом.
 package transport
 
 import (
@@ -22,6 +23,7 @@ import (
 	"github.com/LexusEgorov/goMetrics/internal/models"
 )
 
+// Интерфейс "хранитель". Работает с метриками.
 type Keeper interface {
 	SaveOld(mName, mType, value string) *dohsimpson.Error
 	Save(m models.Metric) (*models.Metric, *dohsimpson.Error)
@@ -36,6 +38,13 @@ type transportServer struct {
 	keeper Keeper
 }
 
+type pageData struct {
+	Title   string
+	Header  string
+	Metrics map[string]models.Metric
+}
+
+// Обработчик обновления метрики старого типа.
 func (t transportServer) UpdateMetricOld(w http.ResponseWriter, r *http.Request) {
 	mName := r.PathValue("metricName")
 	mType := r.PathValue("metricType")
@@ -49,6 +58,7 @@ func (t transportServer) UpdateMetricOld(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+// Обработчик обновления метрики.
 func (t transportServer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-Type")
 
@@ -95,6 +105,7 @@ func (t transportServer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 	w.Write(response)
 }
 
+// Обработчик массового обновления метрик.
 func (t transportServer) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-Type")
 
@@ -134,6 +145,7 @@ func (t transportServer) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Write(response)
 }
 
+// Обработчик получения метрик старого типа.
 func (t transportServer) GetMetricOld(w http.ResponseWriter, r *http.Request) {
 	mName := r.PathValue("metricName")
 	mType := r.PathValue("metricType")
@@ -162,6 +174,7 @@ func (t transportServer) GetMetricOld(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Обработчик получения метрики.
 func (t transportServer) GetMetric(w http.ResponseWriter, r *http.Request) {
 	var currentMetric models.Metric
 	var buf bytes.Buffer
@@ -195,12 +208,7 @@ func (t transportServer) GetMetric(w http.ResponseWriter, r *http.Request) {
 	w.Write(response)
 }
 
-type PageData struct {
-	Title   string
-	Header  string
-	Metrics map[string]models.Metric
-}
-
+// Обработчик получения списка метрик.
 func (t transportServer) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-Type")
 
@@ -221,8 +229,9 @@ func (t transportServer) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Write(response)
 }
 
+// Обработчик получения списка метрик старого типа.
 func (t transportServer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
-	pageData := PageData{
+	pageData := pageData{
 		Title:   "Metrics",
 		Header:  "Metrics list: ",
 		Metrics: t.keeper.ReadAll(),
@@ -262,6 +271,7 @@ func (t transportServer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 }
 
+// Обработчик проверки связи с хранилищем.
 func (t transportServer) CheckDB(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 
@@ -286,6 +296,7 @@ func (t transportServer) CheckDB(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Конструктор сервера.
 func NewServer(keeper Keeper, router *chi.Mux, logger *zap.SugaredLogger, signer middleware.Signer) *transportServer {
 	transportServer := transportServer{
 		Router: router,
@@ -314,6 +325,7 @@ func NewServer(keeper Keeper, router *chi.Mux, logger *zap.SugaredLogger, signer
 
 type transportClient struct{}
 
+// Метод для отправки метрики.
 func (t transportClient) SendMetric(host, metricName, metricType, metricValue string, signer middleware.Signer) {
 	const maxRetries = 3
 
@@ -381,6 +393,7 @@ func (t transportClient) SendMetric(host, metricName, metricType, metricValue st
 	}
 }
 
+// Конструктор агента.
 func NewClient() *transportClient {
 	return &transportClient{}
 }

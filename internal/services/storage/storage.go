@@ -1,3 +1,4 @@
+// Хранилище в оперативной памяти. Один из вариантов хранилищ.
 package storage
 
 import (
@@ -13,6 +14,7 @@ type memStorage struct {
 	data map[string]models.Metric
 }
 
+// Метод для массового сохранения метрик.
 func (m *memStorage) MassSave(metrics []models.Metric) ([]models.Metric, error) {
 	savedMetrics := make([]models.Metric, len(metrics))
 
@@ -36,6 +38,7 @@ func (m *memStorage) MassSave(metrics []models.Metric) ([]models.Metric, error) 
 	return savedMetrics, nil
 }
 
+// Метод для сохранения метрики типа "gauge".
 func (m *memStorage) AddGauge(key string, value float64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -46,6 +49,7 @@ func (m *memStorage) AddGauge(key string, value float64) {
 	}
 }
 
+// Метод для сохранения метрики типа "counter".
 func (m *memStorage) AddCounter(key string, value int64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -63,6 +67,7 @@ func (m *memStorage) AddCounter(key string, value int64) {
 	}
 }
 
+// Метод для получения значения метрики типа "gauge" по ключу.
 func (m *memStorage) GetGauge(key string) (float64, bool) {
 	metric, isFound := m.data[key]
 
@@ -73,6 +78,7 @@ func (m *memStorage) GetGauge(key string) (float64, bool) {
 	return *metric.Value, isFound
 }
 
+// Метод для получения значения метрики типа "counter" по ключу.
 func (m *memStorage) GetCounter(key string) (int64, bool) {
 	metric, isFound := m.data[key]
 
@@ -83,16 +89,20 @@ func (m *memStorage) GetCounter(key string) (int64, bool) {
 	return *metric.Delta, isFound
 }
 
+// Метод для получения всех метрик.
 func (m *memStorage) GetAll() map[string]models.Metric {
 	return m.data
 }
 
+// Метод заглушка. Всегда возвращает true.
 func (m *memStorage) Check() bool {
 	return true
 }
 
+// Метод заглушка. Ничего не делает
 func (m *memStorage) Close() {}
 
+// Конструктор.
 func NewStorage(metrics map[string]models.Metric) keeper.Storager {
 	storage := &memStorage{
 		mu:   sync.Mutex{},
