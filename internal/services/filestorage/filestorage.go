@@ -1,3 +1,6 @@
+// Файловое хранилище. Один из вариантов хранилищ.
+// Работает аналогично хранилищу в оперативной памяти, но имеет возможность
+// восстановить данные из файла и записывать данные в файл.
 package filestorage
 
 import (
@@ -21,6 +24,7 @@ type fileStorage struct {
 	storage  keeper.Storager
 }
 
+// Метод для массового сохранения метрик.
 func (fs fileStorage) MassSave(metrics []models.Metric) ([]models.Metric, error) {
 	savedMetrics := make([]models.Metric, len(metrics))
 
@@ -98,10 +102,12 @@ func (fs fileStorage) read() map[string]models.Metric {
 	return parsedMetrics
 }
 
+// Метод для закрытия работы с файлом.
 func (fs fileStorage) Close() {
 	fs.file.Close()
 }
 
+// Метод для сохранения метрики типа "gauge".
 func (fs fileStorage) AddGauge(key string, value float64) {
 	fs.storage.AddGauge(key, value)
 
@@ -110,6 +116,7 @@ func (fs fileStorage) AddGauge(key string, value float64) {
 	}
 }
 
+// Метод для сохранения метрики типа "counter".
 func (fs fileStorage) AddCounter(key string, value int64) {
 	fs.storage.AddCounter(key, value)
 
@@ -118,22 +125,27 @@ func (fs fileStorage) AddCounter(key string, value int64) {
 	}
 }
 
+// Метод для получения значения метрики типа "gauge" по ключу.
 func (fs fileStorage) GetGauge(key string) (float64, bool) {
 	return fs.storage.GetGauge(key)
 }
 
+// Метод для получения значения метрики типа "counter" по ключу.
 func (fs fileStorage) GetCounter(key string) (int64, bool) {
 	return fs.storage.GetCounter(key)
 }
 
+// Метод для получения всех метрик.
 func (fs fileStorage) GetAll() map[string]models.Metric {
 	return fs.storage.GetAll()
 }
 
+// Метод заглушка. Всегда возвращает true.
 func (fs fileStorage) Check() bool {
 	return true
 }
 
+// Конструктор.
 func NewFileStorage(filepath string, saveInterval int, isRestore bool) keeper.Storager {
 	file, err := os.OpenFile(filepath, os.O_RDWR|os.O_CREATE, 0666)
 

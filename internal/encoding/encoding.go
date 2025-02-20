@@ -1,3 +1,4 @@
+// Пакет encoding позволяет кодировать данные.
 package encoding
 
 import (
@@ -14,6 +15,7 @@ import (
 type encoding struct{}
 type algo int
 
+// Алгоритм кодирования
 const (
 	gz algo = iota
 	deflate
@@ -61,18 +63,22 @@ func (e encoding) encode(data []byte, algo algo) ([]byte, *dohsimpson.Error) {
 	return b.Bytes(), nil
 }
 
+// Метод для кодирования gz.
 func (e encoding) EncodeGz(data []byte) ([]byte, *dohsimpson.Error) {
 	return e.encode(data, gz)
 }
 
+// Метод для декодирования deflate.
 func (e encoding) EncodeDeflate(data []byte) ([]byte, *dohsimpson.Error) {
 	return e.encode(data, deflate)
 }
 
+// Метод для декодирования brottli.
 func (e encoding) EncodeBr(data []byte) ([]byte, *dohsimpson.Error) {
 	return e.encode(data, br)
 }
 
+// Конструктор
 func NewEncoding() encoding {
 	return encoding{}
 }

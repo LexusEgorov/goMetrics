@@ -1,3 +1,4 @@
+// Пакет config определяет переменные для старта приложения.
 package config
 
 import (
@@ -6,12 +7,14 @@ import (
 	"strconv"
 )
 
+// Режимы хранилища.
 const (
 	MemStorage = iota
 	FileStorage
 	DBStorage
 )
 
+// Переменные для запуска сервера.
 type Server struct {
 	Host          string
 	StoreInterval int
@@ -22,6 +25,7 @@ type Server struct {
 	Mode          int
 }
 
+// NewServer определяет переменные из флагов командной строки и переменных окружения для сервера.
 func NewServer() Server {
 	mode := MemStorage
 
@@ -32,6 +36,7 @@ func NewServer() Server {
 	var db string
 	var key string
 
+	//Парсинг флагов командной строки.
 	flag.StringVar(&host, "a", "localhost:8080", "address and port to run server")
 	flag.StringVar(&storePath, "i", "backup.txt", "store path")
 	flag.StringVar(&db, "d", "", "db path")
@@ -40,6 +45,7 @@ func NewServer() Server {
 	flag.BoolVar(&restore, "r", false, "is restore data?")
 	flag.Parse()
 
+	//Получение переменных окружения.
 	envHost := os.Getenv("ADDRESS")
 	envInterval := os.Getenv("STORE_INTERVAL")
 	envPath := os.Getenv("FileStorage_PATH")
@@ -98,6 +104,7 @@ func NewServer() Server {
 	}
 }
 
+// Переменные для запуска сбора метрик.
 type Agent struct {
 	Host           string
 	ReportInterval int
@@ -116,6 +123,7 @@ func parseEnv(variable string) int {
 	return int(parsed)
 }
 
+// NewAgent определяет переменные из флагов командной строки и переменных окружения для агента.
 func NewAgent() Agent {
 	var host string
 	var key string
@@ -123,6 +131,7 @@ func NewAgent() Agent {
 	var pollInterval int
 	var rateLimit int
 
+	//Парсинг флагов командной строки.
 	flag.StringVar(&host, "a", "localhost:8080", "address and port for reporting")
 	flag.StringVar(&key, "k", "", "secret key")
 	flag.IntVar(&reportInterval, "r", 10, "report interval")
@@ -130,6 +139,7 @@ func NewAgent() Agent {
 	flag.IntVar(&rateLimit, "l", 1, "rate limit")
 	flag.Parse()
 
+	//Получение переменных окружения.
 	envHost := os.Getenv("ADDRESS")
 	envReportInterval := os.Getenv("REPORT_INTERVAL")
 	envPollInterval := os.Getenv("POLL_INTERVAL")
