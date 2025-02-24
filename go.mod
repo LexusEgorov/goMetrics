@@ -1,6 +1,6 @@
 module github.com/LexusEgorov/goMetrics
 
-go 1.22
+go 1.22.0
 
 toolchain go1.23.1
 
@@ -8,10 +8,10 @@ require (
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-resty/resty/v2 v2.15.3
 	go.uber.org/zap v1.27.0
+	honnef.co/go/tools v0.3.0
 )
 
 require (
-	github.com/BurntSushi/toml v0.4.1 // indirect
 	github.com/ebitengine/purego v0.8.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
@@ -28,7 +28,6 @@ require (
 	golang.org/x/sync v0.11.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
-	honnef.co/go/tools v0.3.0 // indirect
 )
 
 require (
