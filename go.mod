@@ -1,6 +1,6 @@
 module github.com/LexusEgorov/goMetrics
 
-go 1.23
+go 1.22.1
 
 toolchain go1.23.1
 
@@ -31,7 +31,6 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.1.1
-	github.com/fzipp/gocyclo v0.6.0
 	github.com/jackc/pgx/v5 v5.7.2
 	github.com/kisielk/errcheck v1.9.0
 	github.com/mdempsky/maligned v0.0.0-20220203220013-d7cd9a96ae47
