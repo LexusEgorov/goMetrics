@@ -35,12 +35,14 @@ func NewServer() Server {
 	var restore bool
 	var db string
 	var key string
+	var cryptoKey string
 
 	//Парсинг флагов командной строки.
 	flag.StringVar(&host, "a", "localhost:8080", "address and port to run server")
 	flag.StringVar(&storePath, "i", "backup.txt", "store path")
 	flag.StringVar(&db, "d", "", "db path")
 	flag.StringVar(&key, "k", "", "secret key")
+	flag.StringVar(&cryptoKey, "crypto-key", "", "crypto key")
 	flag.IntVar(&storeInterval, "f", 300, "save interval")
 	flag.BoolVar(&restore, "r", false, "is restore data?")
 	flag.Parse()
@@ -52,9 +54,14 @@ func NewServer() Server {
 	envRestore := os.Getenv("RESTORE")
 	envDB := os.Getenv("DATABASE_DSN")
 	envKey := os.Getenv("KEY")
+	envCryptoKey := os.Getenv("CRYPTO_KEY")
 
 	if envKey != "" {
 		key = envKey
+	}
+
+	if envCryptoKey != "" {
+		cryptoKey = envCryptoKey
 	}
 
 	if envHost != "" {
@@ -93,6 +100,10 @@ func NewServer() Server {
 		mode = DBStorage
 	}
 
+	if cryptoKey != "" {
+		key = cryptoKey
+	}
+
 	return Server{
 		Host:          host,
 		StoreInterval: storeInterval,
@@ -127,6 +138,7 @@ func parseEnv(variable string) int {
 func NewAgent() Agent {
 	var host string
 	var key string
+	var cryptoKey string
 	var reportInterval int
 	var pollInterval int
 	var rateLimit int
@@ -134,6 +146,7 @@ func NewAgent() Agent {
 	//Парсинг флагов командной строки.
 	flag.StringVar(&host, "a", "localhost:8080", "address and port for reporting")
 	flag.StringVar(&key, "k", "", "secret key")
+	flag.StringVar(&cryptoKey, "crypto-key", "", "crypto key")
 	flag.IntVar(&reportInterval, "r", 10, "report interval")
 	flag.IntVar(&pollInterval, "p", 2, "poll interval")
 	flag.IntVar(&rateLimit, "l", 1, "rate limit")
@@ -144,10 +157,15 @@ func NewAgent() Agent {
 	envReportInterval := os.Getenv("REPORT_INTERVAL")
 	envPollInterval := os.Getenv("POLL_INTERVAL")
 	envKey := os.Getenv("KEY")
+	envCryptoKey := os.Getenv("CRYPTO_KEY")
 	envLimit := os.Getenv("RATE_LIMIT")
 
 	if envKey != "" {
 		key = envKey
+	}
+
+	if envCryptoKey != "" {
+		cryptoKey = envCryptoKey
 	}
 
 	if envHost != "" {
@@ -164,6 +182,10 @@ func NewAgent() Agent {
 
 	if envLimit != "" {
 		rateLimit = parseEnv(envLimit)
+	}
+
+	if cryptoKey != "" {
+		key = cryptoKey
 	}
 
 	return Agent{
