@@ -27,6 +27,30 @@ type Server struct {
 	Mode          int
 }
 
+type ServerJSON struct {
+	Server
+	StoreInterval string `json:"store_interval"`
+}
+
+func parseServerJSON(configBytes []byte) *Server {
+	serverJSON := ServerJSON{}
+	err := json.Unmarshal(configBytes, &serverJSON)
+
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
+	return &Server{
+		Host:          serverJSON.Host,
+		StoreInterval: parseTime(serverJSON.StoreInterval),
+		StorePath:     serverJSON.StorePath,
+		Restore:       serverJSON.Restore,
+		DB:            serverJSON.DB,
+		Key:           serverJSON.Key,
+	}
+}
+
 // NewServer определяет переменные из флагов командной строки и переменных окружения для сервера.
 func NewServer() Server {
 	mode := MemStorage
@@ -39,15 +63,51 @@ func NewServer() Server {
 	var key string
 	var cryptoKey string
 
+	var configJSON string
+
 	//Парсинг флагов командной строки.
 	flag.StringVar(&host, "a", "localhost:8080", "address and port to run server")
 	flag.StringVar(&storePath, "f", "backup.txt", "store path")
 	flag.StringVar(&db, "d", "", "db path")
 	flag.StringVar(&key, "k", "", "secret key")
 	flag.StringVar(&cryptoKey, "crypto-key", "", "crypto key")
+	flag.StringVar(&configJSON, "c", "", "JSON config")
 	flag.IntVar(&storeInterval, "i", 300, "save interval")
 	flag.BoolVar(&restore, "r", false, "is restore data?")
 	flag.Parse()
+
+	JSONbytes, err := os.ReadFile(configJSON)
+
+	if err != nil {
+		fmt.Println(err)
+		JSONbytes = []byte{}
+	}
+
+	ServerJSON := parseServerJSON(JSONbytes)
+
+	if host == "" {
+		host = ServerJSON.Host
+	}
+
+	if storeInterval == 0 {
+		storeInterval = ServerJSON.StoreInterval
+	}
+
+	if storePath == "" {
+		storePath = ServerJSON.StorePath
+	}
+
+	if check := flag.Lookup("r"); check == nil {
+		restore = ServerJSON.Restore
+	}
+
+	if db == "" {
+		db = ServerJSON.DB
+	}
+
+	if cryptoKey == "" {
+		cryptoKey = ServerJSON.Key
+	}
 
 	//Получение переменных окружения.
 	envHost := os.Getenv("ADDRESS")
