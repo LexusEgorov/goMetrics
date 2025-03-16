@@ -23,7 +23,7 @@ import (
 
 type serverRunner struct{}
 
-func (s serverRunner) Run(config configPkg.Server) error {
+func (s serverRunner) Run(config configPkg.Server, stopChan chan struct{}) error {
 	logger, err := zap.NewDevelopment()
 
 	if err != nil {
@@ -61,6 +61,22 @@ func (s serverRunner) Run(config configPkg.Server) error {
 	fmt.Println("KEY: ", config.Key)
 	fmt.Println("Storage mode: ", config.Mode)
 
+	go func() {
+		shutdown := false
+
+		for !shutdown {
+			select {
+			case <-stopChan:
+				shutdown = true
+				fmt.Println("shutting down")
+				transportServer.Shutdown()
+				fmt.Println("shutted down")
+				return
+			default:
+			}
+		}
+	}()
+
 	return http.ListenAndServe(config.Host, transportServer.Router)
 }
 
@@ -78,7 +94,7 @@ func (a agentRunner) Run(config configPkg.Agent) {
 	stopChan := make(chan struct{})
 	signalChan := make(chan os.Signal, 1)
 
-	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	go func() {
 		<-signalChan

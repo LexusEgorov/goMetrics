@@ -33,6 +33,10 @@ type ServerJSON struct {
 }
 
 func parseServerJSON(configBytes []byte) *Server {
+	if len(configBytes) == 0 {
+		return &Server{}
+	}
+
 	serverJSON := ServerJSON{}
 	err := json.Unmarshal(configBytes, &serverJSON)
 
@@ -227,6 +231,10 @@ func parseTime(time string) int {
 }
 
 func parseAgentJSON(configBytes []byte) *Agent {
+	if len(configBytes) == 0 {
+		return &Agent{}
+	}
+
 	agentJSON := AgentJSON{}
 	err := json.Unmarshal(configBytes, &agentJSON)
 

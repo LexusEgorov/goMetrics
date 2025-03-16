@@ -33,9 +33,14 @@ type Keeper interface {
 	Check() bool
 }
 
+func SendClosed(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusServiceUnavailable)
+}
+
 type transportServer struct {
 	Router *chi.Mux
 	keeper Keeper
+	isExit bool
 }
 
 type pageData struct {
@@ -44,8 +49,19 @@ type pageData struct {
 	Metrics map[string]models.Metric
 }
 
+func (t *transportServer) Shutdown() {
+	t.isExit = true
+
+	time.Sleep(time.Second * 5)
+}
+
 // Обработчик обновления метрики старого типа.
 func (t transportServer) UpdateMetricOld(w http.ResponseWriter, r *http.Request) {
+	if t.isExit {
+		SendClosed(w)
+		return
+	}
+
 	mName := r.PathValue("metricName")
 	mType := r.PathValue("metricType")
 	mValue := r.PathValue("metricValue")
@@ -60,6 +76,10 @@ func (t transportServer) UpdateMetricOld(w http.ResponseWriter, r *http.Request)
 
 // Обработчик обновления метрики.
 func (t transportServer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
+	if t.isExit {
+		SendClosed(w)
+		return
+	}
 	contentType := r.Header.Get("Content-Type")
 
 	if contentType != "application/json" {
@@ -107,6 +127,10 @@ func (t transportServer) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 
 // Обработчик массового обновления метрик.
 func (t transportServer) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
+	if t.isExit {
+		SendClosed(w)
+		return
+	}
 	contentType := r.Header.Get("Content-Type")
 
 	if contentType != "application/json" {
@@ -147,6 +171,10 @@ func (t transportServer) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
 
 // Обработчик получения метрик старого типа.
 func (t transportServer) GetMetricOld(w http.ResponseWriter, r *http.Request) {
+	if t.isExit {
+		SendClosed(w)
+		return
+	}
 	mName := r.PathValue("metricName")
 	mType := r.PathValue("metricType")
 
@@ -176,6 +204,10 @@ func (t transportServer) GetMetricOld(w http.ResponseWriter, r *http.Request) {
 
 // Обработчик получения метрики.
 func (t transportServer) GetMetric(w http.ResponseWriter, r *http.Request) {
+	if t.isExit {
+		SendClosed(w)
+		return
+	}
 	var currentMetric models.Metric
 	var buf bytes.Buffer
 
@@ -210,6 +242,10 @@ func (t transportServer) GetMetric(w http.ResponseWriter, r *http.Request) {
 
 // Обработчик получения списка метрик.
 func (t transportServer) GetMetrics(w http.ResponseWriter, r *http.Request) {
+	if !t.isExit {
+		SendClosed(w)
+		return
+	}
 	contentType := r.Header.Get("Content-Type")
 
 	if contentType != "application/json" {
@@ -231,6 +267,10 @@ func (t transportServer) GetMetrics(w http.ResponseWriter, r *http.Request) {
 
 // Обработчик получения списка метрик старого типа.
 func (t transportServer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
+	if t.isExit {
+		SendClosed(w)
+		return
+	}
 	pageData := pageData{
 		Title:   "Metrics",
 		Header:  "Metrics list: ",
@@ -273,6 +313,10 @@ func (t transportServer) GetMetricsOld(w http.ResponseWriter, r *http.Request) {
 
 // Обработчик проверки связи с хранилищем.
 func (t transportServer) CheckDB(w http.ResponseWriter, r *http.Request) {
+	if t.isExit {
+		SendClosed(w)
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 
 	defer cancel()

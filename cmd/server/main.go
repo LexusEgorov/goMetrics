@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/LexusEgorov/goMetrics/internal/config"
 	"github.com/LexusEgorov/goMetrics/internal/runners"
@@ -30,7 +33,17 @@ func main() {
 	server := runners.NewServer()
 	serverVars := config.NewServer()
 
-	if err := server.Run(serverVars); err != nil {
+	stopChan := make(chan struct{})
+	signalChan := make(chan os.Signal, 1)
+
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+	go func() {
+		<-signalChan
+		close(stopChan)
+	}()
+
+	if err := server.Run(serverVars, stopChan); err != nil {
 		panic(err)
 	}
 }
