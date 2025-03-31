@@ -51,7 +51,7 @@ func (s serverRunner) Run(config configPkg.Server, stopChan chan struct{}) error
 	keeper := keeper.NewKeeper(storage)
 	signer := sign.NewSign(config.Key)
 
-	transportServer := transport.NewServer(keeper, router, sugar, signer)
+	transportServer := transport.NewServer(keeper, router, sugar, signer, config.TrustedSubnet)
 
 	fmt.Println("Running server on", config.Host)
 	fmt.Println("Backup interval: ", config.StoreInterval)
@@ -60,6 +60,7 @@ func (s serverRunner) Run(config configPkg.Server, stopChan chan struct{}) error
 	fmt.Println("DB host: ", config.DB)
 	fmt.Println("KEY: ", config.Key)
 	fmt.Println("Storage mode: ", config.Mode)
+	fmt.Println("Trusted subnet: ", config.TrustedSubnet)
 
 	go func() {
 		shutdown := false
