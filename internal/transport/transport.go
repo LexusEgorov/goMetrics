@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
 	"text/template"
@@ -242,10 +243,11 @@ func (t transportServer) GetMetric(w http.ResponseWriter, r *http.Request) {
 
 // Обработчик получения списка метрик.
 func (t transportServer) GetMetrics(w http.ResponseWriter, r *http.Request) {
-	if !t.isExit {
+	if t.isExit {
 		SendClosed(w)
 		return
 	}
+
 	contentType := r.Header.Get("Content-Type")
 
 	if contentType != "application/json" {
@@ -341,14 +343,14 @@ func (t transportServer) CheckDB(w http.ResponseWriter, r *http.Request) {
 }
 
 // Конструктор сервера.
-func NewServer(keeper Keeper, router *chi.Mux, logger *zap.SugaredLogger, signer middleware.Signer) *transportServer {
+func NewServer(keeper Keeper, router *chi.Mux, logger *zap.SugaredLogger, signer middleware.Signer, accept string) *transportServer {
 	transportServer := transportServer{
 		Router: router,
 		keeper: keeper,
 	}
 
 	router.Use(middleware.WithLogging(logger))
-
+	router.Use(middleware.WithAccepting(accept))
 	router.Use(middleware.WithDecoding)
 	router.Use(middleware.WithVerifying(signer))
 	router.Use(middleware.WithEncoding)
@@ -367,7 +369,9 @@ func NewServer(keeper Keeper, router *chi.Mux, logger *zap.SugaredLogger, signer
 	return &transportServer
 }
 
-type transportClient struct{}
+type transportClient struct {
+	ip string
+}
 
 // Метод для отправки метрики.
 func (t transportClient) SendMetric(host, metricName, metricType, metricValue string, signer middleware.Signer) {
@@ -420,6 +424,7 @@ func (t transportClient) SendMetric(host, metricName, metricType, metricValue st
 		resp, err := client.R().
 			SetHeader("Content-Type", "application/json").
 			SetHeader("HashSHA256", sign).
+			SetHeader("X-Real-IP", t.ip).
 			SetBody(body).
 			Post(url)
 
@@ -439,5 +444,26 @@ func (t transportClient) SendMetric(host, metricName, metricType, metricValue st
 
 // Конструктор агента.
 func NewClient() *transportClient {
-	return &transportClient{}
+	ip := ""
+	ifaces, err := net.Interfaces()
+	if err == nil {
+		for _, iface := range ifaces {
+			addrs, err := iface.Addrs()
+			if err != nil {
+				continue
+			}
+
+			for _, addr := range addrs {
+				if ipnet, ok := addr.(*net.IPNet); ok && ipnet.IP.IsPrivate() {
+					ip = ipnet.IP.String()
+				}
+			}
+		}
+
+		fmt.Printf("Agent IP: %s\n", ip)
+	}
+
+	return &transportClient{
+		ip: ip,
+	}
 }

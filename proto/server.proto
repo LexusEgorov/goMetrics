@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package gometrics;
+
+option go_package = "gometrics/proto";
+
+message PingResponse {
+  int32 status = 1;
+}
+
+enum MType {
+  COUNTER = 0;
+  GAUGE = 1;
+}
+
+message Metric {
+  string id = 1;
+  MType type = 2;
+  oneof value {
+    int64 delta = 3;
+    int64 value = 4;
+  }
+}
+
+message Metrics {
+  repeated Metric metrics = 1;
+}
+
+message GetMetricRequest {
+  string id = 1;
+  MType type = 2;
+}
+
+service Metrics {
+  rpc Ping() returns (PingResponse);
+  rpc GetMetric(GetMetricRequest) returns (Metric);
+  rpc GetMetrics() returns (Metrics);
+  rpc UpdateMetric(Metric) returns (Metric);
+  rpc BatchUpdateMetrics(Metrics) returns (Metrics);
+}

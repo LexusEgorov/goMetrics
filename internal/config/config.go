@@ -24,6 +24,7 @@ type Server struct {
 	Restore       bool   `json:"restore"`
 	DB            string `json:"database_dsn"`
 	Key           string `json:"crypto_key"`
+	TrustedSubnet string `json:"trusted_subnet"`
 	Mode          int
 }
 
@@ -52,6 +53,7 @@ func parseServerJSON(configBytes []byte) *Server {
 		Restore:       serverJSON.Restore,
 		DB:            serverJSON.DB,
 		Key:           serverJSON.Key,
+		TrustedSubnet: serverJSON.TrustedSubnet,
 	}
 }
 
@@ -66,6 +68,7 @@ func NewServer() Server {
 	var db string
 	var key string
 	var cryptoKey string
+	var trustedSubnet string
 
 	var configJSON string
 
@@ -76,6 +79,7 @@ func NewServer() Server {
 	flag.StringVar(&key, "k", "", "secret key")
 	flag.StringVar(&cryptoKey, "crypto-key", "", "crypto key")
 	flag.StringVar(&configJSON, "c", "", "JSON config")
+	flag.StringVar(&trustedSubnet, "t", "", "trusted subnet")
 	flag.IntVar(&storeInterval, "i", 300, "save interval")
 	flag.BoolVar(&restore, "r", false, "is restore data?")
 	flag.Parse()
@@ -88,6 +92,10 @@ func NewServer() Server {
 	}
 
 	ServerJSON := parseServerJSON(JSONbytes)
+
+	if trustedSubnet == "" {
+		trustedSubnet = ServerJSON.TrustedSubnet
+	}
 
 	if host == "" {
 		host = ServerJSON.Host
@@ -120,10 +128,15 @@ func NewServer() Server {
 	envRestore := os.Getenv("RESTORE")
 	envDB := os.Getenv("DATABASE_DSN")
 	envKey := os.Getenv("KEY")
+	envTrustedSubnet := os.Getenv("TRUSTED_SUBNET")
 	envCryptoKey := os.Getenv("CRYPTO_KEY")
 
 	if envKey != "" {
 		key = envKey
+	}
+
+	if envTrustedSubnet != "" {
+		trustedSubnet = envTrustedSubnet
 	}
 
 	if envCryptoKey != "" {
@@ -178,6 +191,7 @@ func NewServer() Server {
 		DB:            db,
 		Key:           key,
 		Mode:          mode,
+		TrustedSubnet: trustedSubnet,
 	}
 }
 

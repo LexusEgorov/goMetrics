@@ -1,11 +1,13 @@
 package runners
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -51,7 +53,12 @@ func (s serverRunner) Run(config configPkg.Server, stopChan chan struct{}) error
 	keeper := keeper.NewKeeper(storage)
 	signer := sign.NewSign(config.Key)
 
-	transportServer := transport.NewServer(keeper, router, sugar, signer)
+	transportServer := transport.NewServer(keeper, router, sugar, signer, config.TrustedSubnet)
+
+	server := http.Server{
+		Addr:    config.Host,
+		Handler: transportServer.Router,
+	}
 
 	fmt.Println("Running server on", config.Host)
 	fmt.Println("Backup interval: ", config.StoreInterval)
@@ -60,24 +67,20 @@ func (s serverRunner) Run(config configPkg.Server, stopChan chan struct{}) error
 	fmt.Println("DB host: ", config.DB)
 	fmt.Println("KEY: ", config.Key)
 	fmt.Println("Storage mode: ", config.Mode)
+	fmt.Println("Trusted subnet: ", config.TrustedSubnet)
 
 	go func() {
-		shutdown := false
+		<-stopChan
+		fmt.Println("shutting down")
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 
-		for !shutdown {
-			select {
-			case <-stopChan:
-				shutdown = true
-				fmt.Println("shutting down")
-				transportServer.Shutdown()
-				fmt.Println("shutted down")
-				return
-			default:
-			}
-		}
+		server.Shutdown(ctx)
+
+		fmt.Println("shutted down")
 	}()
 
-	return http.ListenAndServe(config.Host, transportServer.Router)
+	return server.ListenAndServe()
 }
 
 func NewServer() *serverRunner {
