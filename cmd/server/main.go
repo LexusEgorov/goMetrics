@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -43,7 +44,7 @@ func main() {
 		close(stopChan)
 	}()
 
-	if err := server.Run(serverVars, stopChan); err != nil {
+	if err := server.Run(serverVars, stopChan); err != http.ErrServerClosed {
 		panic(err)
 	}
 }

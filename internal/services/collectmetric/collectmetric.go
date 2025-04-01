@@ -2,6 +2,7 @@
 package collectmetric
 
 import (
+	"context"
 	"fmt"
 	"math/rand/v2"
 	"reflect"
@@ -57,8 +58,7 @@ type metricAgent struct {
 	wg         sync.WaitGroup
 }
 
-func (agent *metricAgent) collectMetrics() {
-	defer agent.wg.Done()
+func (agent *metricAgent) collectMetrics(ctx context.Context) {
 	for {
 		select {
 		case _, ok := <-agent.stopChan:
@@ -74,79 +74,77 @@ func (agent *metricAgent) collectMetrics() {
 			runtime.ReadMemStats(&memStats)
 
 			for _, metricName := range gaugeMetrics {
-				agent.pollCount++
-				currentMetric := models.Metric{
-					ID:    metricName,
-					MType: "gauge",
-				}
+				select {
+				case <-ctx.Done():
+					fmt.Println("Collect cancelled")
+					return
+				default:
+					agent.pollCount++
+					currentMetric := models.Metric{
+						ID:    metricName,
+						MType: "gauge",
+					}
 
-				value := reflect.ValueOf(memStats).FieldByName(metricName)
+					value := reflect.ValueOf(memStats).FieldByName(metricName)
 
-				if value.IsValid() && value.CanInterface() {
-					var floatedValue float64
+					if value.IsValid() && value.CanInterface() {
+						var floatedValue float64
 
-					switch v := value.Interface().(type) {
-					case float64:
-						floatedValue = v
-					case uint64:
-						floatedValue = float64(v)
-					case uint32:
-						floatedValue = float64(v)
-					case uint16:
-						floatedValue = float64(v)
-					case uint8:
-						floatedValue = float64(v)
-					default:
-						fmt.Printf("Unable to convert metric %s (%s) to a float64\n", metricName, v)
+						switch v := value.Interface().(type) {
+						case float64:
+							floatedValue = v
+						case uint64:
+							floatedValue = float64(v)
+						case uint32:
+							floatedValue = float64(v)
+						case uint16:
+							floatedValue = float64(v)
+						case uint8:
+							floatedValue = float64(v)
+						default:
+							fmt.Printf("Unable to convert metric %s (%s) to a float64\n", metricName, v)
+							continue
+						}
+
+						currentMetric.Value = &floatedValue
+					} else {
+						fmt.Printf("Metric %s is not valid or accessible\n", metricName)
 						continue
 					}
 
-					currentMetric.Value = &floatedValue
-				} else {
-					fmt.Printf("Metric %s is not valid or accessible\n", metricName)
-					continue
+					agent.metricChan <- currentMetric
 				}
 
-				agent.metricChan <- currentMetric
+				agent.metricChan <- models.Metric{
+					ID:    "PollCount",
+					MType: "counter",
+					Delta: &agent.pollCount,
+				}
+
+				randomValue := rand.Float64()
+
+				agent.metricChan <- models.Metric{
+					ID:    "RandomValue",
+					MType: "gauge",
+					Value: &randomValue,
+				}
+
+				time.Sleep(time.Duration(agent.config.PollInterval) * time.Second)
 			}
-
-			agent.metricChan <- models.Metric{
-				ID:    "PollCount",
-				MType: "counter",
-				Delta: &agent.pollCount,
-			}
-
-			randomValue := rand.Float64()
-
-			agent.metricChan <- models.Metric{
-				ID:    "RandomValue",
-				MType: "gauge",
-				Value: &randomValue,
-			}
-
-			time.Sleep(time.Duration(agent.config.PollInterval) * time.Second)
 		}
 	}
 }
 
-func (agent *metricAgent) sendMetrics(isLast bool) {
+func (agent *metricAgent) sendMetrics() {
 	transportClient := transport.NewClient()
 	semaphore := make(chan struct{}, agent.config.RateLimit)
 
+	isStop := false
+
 	for {
 		select {
-		case _, ok := <-agent.stopChan:
-			if isLast {
-				continue
-			}
-
-			if ok {
-				fmt.Println("send stop")
-				return
-			}
-
-			fmt.Println("send stop (already)")
-			return
+		case <-agent.stopChan:
+			isStop = true
 		default:
 			time.Sleep(time.Duration(agent.config.ReportInterval) * time.Second)
 			fmt.Println("Sending started")
@@ -174,6 +172,10 @@ func (agent *metricAgent) sendMetrics(isLast bool) {
 
 			agent.wg.Wait()
 			fmt.Println("Sending finished")
+			if isStop {
+				fmt.Println("Sending stopped")
+				return
+			}
 		}
 	}
 }
@@ -230,24 +232,17 @@ func (agent *metricAgent) Start(stopChan chan struct{}) {
 	fmt.Printf("Key: %s\n", agent.config.Key)
 
 	agent.stopChan = stopChan
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	go agent.collectMetrics()
-	go agent.sendMetrics(false)
+	go agent.collectMetrics(ctx)
 	go agent.collectAdditionals()
+	go agent.sendMetrics()
 
-	shutdown := false
+	<-stopChan
 
-	for !shutdown {
-		select {
-		case <-stopChan:
-			shutdown = true
-			agent.sendMetrics(true)
-		default:
-		}
-	}
-
+	cancel()
 	close(agent.metricChan)
-	agent.wg.Wait()
 	fmt.Println("Agent finished")
 }
 

@@ -243,10 +243,11 @@ func (t transportServer) GetMetric(w http.ResponseWriter, r *http.Request) {
 
 // Обработчик получения списка метрик.
 func (t transportServer) GetMetrics(w http.ResponseWriter, r *http.Request) {
-	if !t.isExit {
+	if t.isExit {
 		SendClosed(w)
 		return
 	}
+
 	contentType := r.Header.Get("Content-Type")
 
 	if contentType != "application/json" {
@@ -458,9 +459,9 @@ func NewClient() *transportClient {
 				}
 			}
 		}
-	}
 
-	fmt.Printf("Agent IP: %s\n", ip)
+		fmt.Printf("Agent IP: %s\n", ip)
+	}
 
 	return &transportClient{
 		ip: ip,
